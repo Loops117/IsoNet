@@ -1,11 +1,20 @@
 # IsoNet
 
-Initial repository structure for The Isopod Network.
+Scaffold for The Isopod Network.
 
-## Layout
+## Apps
 
 - `apps/main` - main site for `theisopodnetwork.com`
 - `apps/admin` - admin portal for `admin.theisopodnetwork.com`
 
-Each app currently contains a minimal static placeholder so separate Vercel
-projects can target stable root directories immediately.
+Both apps are independent Next.js projects so each Vercel project can target
+its own root directory cleanly.
+
+## Root Scripts
+
+- `npm run dev:main`
+- `npm run dev:admin`
+- `npm run build:main`
+- `npm run build:admin`
+- `npm run lint:main`
+- `npm run lint:admin`

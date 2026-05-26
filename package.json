@@ -1,0 +1,12 @@
+{
+  "name": "isonet-site",
+  "private": true,
+  "scripts": {
+    "dev:main": "npm --prefix apps/main run dev",
+    "dev:admin": "npm --prefix apps/admin run dev",
+    "build:main": "npm --prefix apps/main run build",
+    "build:admin": "npm --prefix apps/admin run build",
+    "lint:main": "npm --prefix apps/main run lint",
+    "lint:admin": "npm --prefix apps/admin run lint"
+  }
+}

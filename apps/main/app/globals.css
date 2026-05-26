@@ -1,0 +1,207 @@
+@import "tailwindcss";
+
+:root {
+  --background: #09101a;
+  --foreground: #d9e3f0;
+  --panel: rgba(8, 20, 39, 0.92);
+  --accent: #9fb2c8;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  position: relative;
+  isolation: isolate;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02), transparent),
+    radial-gradient(circle at top, rgba(159, 178, 200, 0.18), transparent 35%),
+    var(--background);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.isonet-panel {
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+}
+
+.isonet-hero-panel {
+  background: rgba(8, 20, 39, 0.66);
+  backdrop-filter: blur(12px);
+}
+
+.isonet-link {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.7rem 0.95rem;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.isonet-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.isonet-button,
+.isonet-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.8rem 1.15rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.isonet-button {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--accent);
+  color: #08111d;
+}
+
+.isonet-button:hover {
+  background: #b8c8d8;
+}
+
+.isonet-button-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--foreground);
+}
+
+.isonet-button-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.isonet-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(159, 178, 200, 0.34) transparent;
+}
+
+.isonet-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.isonet-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.isonet-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(159, 178, 200, 0.48),
+    rgba(159, 178, 200, 0.22)
+  );
+  background-clip: padding-box;
+}
+
+.isonet-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(184, 200, 216, 0.62),
+    rgba(159, 178, 200, 0.32)
+  );
+  background-clip: padding-box;
+}
+
+.badge-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 16rem);
+  aspect-ratio: 1 / 1;
+  padding: 0.95rem;
+  border-radius: 999px;
+  border: 1px solid rgba(159, 178, 200, 0.18);
+  background:
+    radial-gradient(circle at 30% 20%, rgba(159, 178, 200, 0.26), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 30px 80px rgba(0, 0, 0, 0.28);
+}
+
+.badge-placeholder__inner {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(194, 208, 223, 0.22);
+  background:
+    linear-gradient(180deg, rgba(7, 17, 33, 0.98), rgba(8, 20, 39, 0.94)),
+    radial-gradient(circle at top, rgba(159, 178, 200, 0.12), transparent 55%);
+  text-align: center;
+}
+
+.badge-placeholder__eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: rgba(159, 178, 200, 0.92);
+}
+
+.badge-placeholder__title {
+  font-size: clamp(1.65rem, 3.2vw, 2.35rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f8fafc;
+}
+
+.badge-placeholder__seal {
+  margin-top: 0.4rem;
+  height: 3rem;
+  width: 3rem;
+  border-radius: 999px;
+  border: 1px solid rgba(194, 208, 223, 0.3);
+  background:
+    radial-gradient(circle, rgba(194, 208, 223, 0.75) 0%, rgba(159, 178, 200, 0.16) 45%, transparent 70%);
+  box-shadow:
+    0 0 0 7px rgba(159, 178, 200, 0.08),
+    0 0 30px rgba(159, 178, 200, 0.18);
+}
