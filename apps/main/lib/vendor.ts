@@ -22,9 +22,17 @@ export type VendorDisputeStatus = "open" | "under_review" | "resolved" | "dismis
 export type VendorProfile = {
   user_id: string;
   owner_name: string;
+  first_name: string | null;
+  last_name: string | null;
   company_name: string;
   website_url: string | null;
   address: string | null;
+  street_address: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  state_province: string | null;
+  postal_code: string | null;
+  country: string | null;
   phone_number: string | null;
   email: string;
   account_status: VendorAccountStatus;
@@ -97,10 +105,18 @@ export type VendorSocialLinkFields = {
 };
 
 type VendorMetadata = {
+  firstName: string | null;
+  lastName: string | null;
   ownerName: string;
   companyName: string;
   websiteUrl: string | null;
   address: string | null;
+  streetAddress: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  stateProvince: string | null;
+  postalCode: string | null;
+  country: string | null;
   phoneNumber: string | null;
   companyEmail: string | null;
   badgeUrl: string | null;
@@ -149,6 +165,16 @@ function metadataString(
 
   const trimmed = value.trim();
   return trimmed ? trimmed : fallback;
+}
+
+function combineOwnerName(firstName: string | null, lastName: string | null) {
+  const combined = [firstName, lastName].filter(Boolean).join(" ").trim();
+  return combined || "Vendor Owner";
+}
+
+function combineAddress(parts: Array<string | null>) {
+  const combined = parts.filter(Boolean).join(", ").trim();
+  return combined || null;
 }
 
 export function createVendorSocialLinksFromInput(rawValue: string) {
@@ -256,12 +282,41 @@ function extractVendorMetadata(user: User): VendorMetadata {
         .filter((entry): entry is VendorSocialLinkInput => Boolean(entry))
     : [];
 
+  const firstName = metadataString(metadata, "first_name");
+  const lastName = metadataString(metadata, "last_name");
+  const streetAddress = metadataString(metadata, "street_address");
+  const addressLine2 = metadataString(metadata, "address_line_2");
+  const city = metadataString(metadata, "city");
+  const stateProvince = metadataString(metadata, "state_province");
+  const postalCode = metadataString(metadata, "postal_code");
+  const country = metadataString(metadata, "country");
+  const legacyAddress = metadataString(metadata, "address");
+
   return {
-    ownerName: metadataString(metadata, "owner_name", "Vendor Owner") ?? "Vendor Owner",
+    firstName,
+    lastName,
+    ownerName:
+      metadataString(metadata, "owner_name") ??
+      combineOwnerName(firstName, lastName) ??
+      "Vendor Owner",
     companyName:
       metadataString(metadata, "company_name", "Vendor Company") ?? "Vendor Company",
     websiteUrl: metadataString(metadata, "website_url"),
-    address: metadataString(metadata, "address"),
+    address:
+      combineAddress([
+        streetAddress,
+        addressLine2,
+        city,
+        stateProvince,
+        postalCode,
+        country,
+      ]) ?? legacyAddress,
+    streetAddress,
+    addressLine2,
+    city,
+    stateProvince,
+    postalCode,
+    country,
     phoneNumber: metadataString(metadata, "phone_number"),
     companyEmail: metadataString(metadata, "company_email", user.email ?? null),
     badgeUrl: metadataString(metadata, "badge_url"),
@@ -281,9 +336,17 @@ export async function ensureVendorProfileProvisioned(
     {
       user_id: user.id,
       owner_name: metadata.ownerName,
+      first_name: metadata.firstName,
+      last_name: metadata.lastName,
       company_name: metadata.companyName,
       website_url: metadata.websiteUrl,
       address: metadata.address,
+      street_address: metadata.streetAddress,
+      address_line_2: metadata.addressLine2,
+      city: metadata.city,
+      state_province: metadata.stateProvince,
+      postal_code: metadata.postalCode,
+      country: metadata.country,
       phone_number: metadata.phoneNumber,
       email: metadata.companyEmail ?? user.email ?? "",
       account_status: "not_approved",

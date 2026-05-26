@@ -40,6 +40,27 @@ function formatRating(value: number | null | undefined) {
   return value.toFixed(2);
 }
 
+function formatStructuredAddress(profile: VendorProfile | null) {
+  if (!profile) {
+    return "Not set";
+  }
+
+  return (
+    [
+      profile.street_address,
+      profile.address_line_2,
+      profile.city,
+      profile.state_province,
+      profile.postal_code,
+      profile.country,
+    ]
+      .filter(Boolean)
+      .join(", ") ||
+    profile.address ||
+    "Not set"
+  );
+}
+
 function normalizeProfile(data: Record<string, unknown> | null) {
   if (!data) {
     return null;
@@ -48,9 +69,17 @@ function normalizeProfile(data: Record<string, unknown> | null) {
   return {
     user_id: String(data.user_id ?? ""),
     owner_name: String(data.owner_name ?? ""),
+    first_name: data.first_name ? String(data.first_name) : null,
+    last_name: data.last_name ? String(data.last_name) : null,
     company_name: String(data.company_name ?? ""),
     website_url: data.website_url ? String(data.website_url) : null,
     address: data.address ? String(data.address) : null,
+    street_address: data.street_address ? String(data.street_address) : null,
+    address_line_2: data.address_line_2 ? String(data.address_line_2) : null,
+    city: data.city ? String(data.city) : null,
+    state_province: data.state_province ? String(data.state_province) : null,
+    postal_code: data.postal_code ? String(data.postal_code) : null,
+    country: data.country ? String(data.country) : null,
     phone_number: data.phone_number ? String(data.phone_number) : null,
     email: String(data.email ?? ""),
     account_status: String(data.account_status ?? "not_approved"),
@@ -237,7 +266,7 @@ export function VendorPortal() {
         const profileQuery = await client
           .from("vendor_profiles")
           .select(
-            "user_id, owner_name, company_name, website_url, address, phone_number, email, account_status, badge_url, company_logo_url, average_rating, review_count, start_date, created_at, updated_at",
+            "user_id, owner_name, first_name, last_name, company_name, website_url, address, street_address, address_line_2, city, state_province, postal_code, country, phone_number, email, account_status, badge_url, company_logo_url, average_rating, review_count, start_date, created_at, updated_at",
           )
           .eq("user_id", user.id)
           .maybeSingle();
@@ -256,7 +285,7 @@ export function VendorPortal() {
           const retryProfileQuery = await client
             .from("vendor_profiles")
             .select(
-              "user_id, owner_name, company_name, website_url, address, phone_number, email, account_status, badge_url, company_logo_url, average_rating, review_count, start_date, created_at, updated_at",
+              "user_id, owner_name, first_name, last_name, company_name, website_url, address, street_address, address_line_2, city, state_province, postal_code, country, phone_number, email, account_status, badge_url, company_logo_url, average_rating, review_count, start_date, created_at, updated_at",
             )
             .eq("user_id", user.id)
             .maybeSingle();
@@ -499,16 +528,20 @@ export function VendorPortal() {
   }
 
   const completionFields = [
-    profile?.owner_name,
+    profile?.first_name ?? profile?.owner_name,
+    profile?.last_name ?? profile?.owner_name,
     profile?.company_name,
     profile?.website_url,
-    profile?.address,
+    profile?.street_address ?? profile?.address,
+    profile?.city,
+    profile?.postal_code,
+    profile?.country,
     profile?.phone_number,
     profile?.email,
     socialLinks.length > 0 ? "socials" : "",
   ].filter(Boolean).length;
 
-  const completionPercent = Math.round((completionFields / 7) * 100);
+  const completionPercent = Math.round((completionFields / 10) * 100);
   const isAwaitingApproval =
     profile?.account_status === "not_approved" ||
     profile?.account_status === "pending_review";
@@ -822,7 +855,12 @@ export function VendorPortal() {
                       },
                       {
                         label: "Owner",
-                        value: profile?.owner_name ?? "Pending owner",
+                        value:
+                          [profile?.first_name, profile?.last_name]
+                            .filter(Boolean)
+                            .join(" ") ||
+                          profile?.owner_name ||
+                          "Pending owner",
                       },
                       {
                         label: "Start date",
@@ -950,12 +988,40 @@ export function VendorPortal() {
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {[
-                      { label: "Owner Name", value: profile?.owner_name ?? "Not set" },
+                      {
+                        label: "First Name",
+                        value: profile?.first_name ?? "Not set",
+                      },
+                      {
+                        label: "Last Name",
+                        value: profile?.last_name ?? "Not set",
+                      },
                       { label: "Company Name", value: profile?.company_name ?? "Not set" },
                       { label: "Email", value: profile?.email ?? "Not set" },
                       { label: "Phone Number", value: profile?.phone_number ?? "Not set" },
                       { label: "Website URL", value: profile?.website_url ?? "Not set" },
-                      { label: "Address", value: profile?.address ?? "Not set" },
+                      {
+                        label: "Street Address",
+                        value: profile?.street_address ?? profile?.address ?? "Not set",
+                      },
+                      {
+                        label: "Address Line 2",
+                        value: profile?.address_line_2 ?? "Not set",
+                      },
+                      { label: "City", value: profile?.city ?? "Not set" },
+                      {
+                        label: "State / Province",
+                        value: profile?.state_province ?? "Not set",
+                      },
+                      {
+                        label: "ZIP / Postal Code",
+                        value: profile?.postal_code ?? "Not set",
+                      },
+                      { label: "Country", value: profile?.country ?? "Not set" },
+                      {
+                        label: "Full Address",
+                        value: formatStructuredAddress(profile),
+                      },
                       {
                         label: "Account Status",
                         value: formatVendorStatus(profile?.account_status),

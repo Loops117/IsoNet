@@ -75,9 +75,17 @@ export type AdminVendorDetail = {
   profile: {
     user_id: string;
     owner_name: string;
+    first_name: string | null;
+    last_name: string | null;
     company_name: string;
     website_url: string | null;
     address: string | null;
+    street_address: string | null;
+    address_line_2: string | null;
+    city: string | null;
+    state_province: string | null;
+    postal_code: string | null;
+    country: string | null;
     phone_number: string | null;
     email: string;
     account_status: AdminVendorAccountStatus;

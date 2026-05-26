@@ -10,6 +10,7 @@ import {
 } from "../../lib/vendor";
 
 type AccessMode = "signup" | "login";
+type SignupStep = 1 | 2 | 3 | 4;
 
 type VendorAccessPanelProps = {
   initialMode?: AccessMode;
@@ -19,7 +20,8 @@ type VendorAccessPanelProps = {
 };
 
 const defaultForm = {
-  ownerName: "",
+  firstName: "",
+  lastName: "",
   companyName: "",
   websiteUrl: "",
   facebook: "",
@@ -28,11 +30,31 @@ const defaultForm = {
   isopodKeepers: "",
   morphmarket: "",
   additionalLinks: "",
-  address: "",
+  streetAddress: "",
+  addressLine2: "",
+  city: "",
+  stateProvince: "",
+  postalCode: "",
+  country: "",
   phoneNumber: "",
   email: "",
   password: "",
   confirmPassword: "",
+};
+
+type AddressSuggestion = {
+  label: string;
+  streetAddress: string;
+  city: string;
+  stateProvince: string;
+  postalCode: string;
+  country: string;
+};
+
+type SignupStepMeta = {
+  eyebrow: string;
+  title: string;
+  description: string;
 };
 
 const socialFields = [
@@ -50,6 +72,33 @@ const socialFields = [
     placeholder: "https://morphmarket.com/stores/yourbrand",
   },
 ] as const;
+
+const signupStepMeta: Record<SignupStep, SignupStepMeta> = {
+  1: {
+    eyebrow: "Step 1",
+    title: "User information",
+    description:
+      "Add the primary contact information we need to identify the vendor account and route it through approval.",
+  },
+  2: {
+    eyebrow: "Step 2",
+    title: "Company details",
+    description:
+      "Share the storefront and social pages you want associated with your vendor profile inside The Isopod Network.",
+  },
+  3: {
+    eyebrow: "Step 3",
+    title: "Review your application",
+    description:
+      "Confirm the information below before submitting the vendor application for approval.",
+  },
+  4: {
+    eyebrow: "Step 4",
+    title: "Application received",
+    description:
+      "Your vendor account has been created and sent into the approval process. You can still access your portal while approval is pending.",
+  },
+};
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "message" in error) {
@@ -117,6 +166,56 @@ function getPasswordStrength(password: string) {
   };
 }
 
+function formatPhoneNumberInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+
+  if (digits.length <= 3) {
+    return digits;
+  }
+
+  if (digits.length <= 6) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  }
+
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function buildStreetAddress(houseNumber?: string, road?: string) {
+  return [houseNumber, road].filter(Boolean).join(" ").trim();
+}
+
+function parseAddressSuggestion(item: {
+  display_name?: string;
+  address?: Record<string, string | undefined>;
+}) {
+  const address = item.address ?? {};
+  const streetAddress =
+    buildStreetAddress(address.house_number, address.road) ||
+    address.road ||
+    address.pedestrian ||
+    address.path ||
+    "";
+  const city =
+    address.city || address.town || address.village || address.hamlet || "";
+  const stateProvince = address.state || address.region || address.county || "";
+  const postalCode = address.postcode || "";
+  const country = address.country || "";
+  const label =
+    item.display_name ||
+    [streetAddress, city, stateProvince, postalCode, country]
+      .filter(Boolean)
+      .join(", ");
+
+  return {
+    label,
+    streetAddress,
+    city,
+    stateProvince,
+    postalCode,
+    country,
+  } satisfies AddressSuggestion;
+}
+
 export function VendorAccessPanel({
   initialMode = "signup",
   compact = false,
@@ -126,12 +225,18 @@ export function VendorAccessPanel({
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
-  const [mode, setMode] = useState<AccessMode>(initialMode);
+  const [mode] = useState<AccessMode>(initialMode);
+  const [signupStep, setSignupStep] = useState<SignupStep>(1);
   const [form, setForm] = useState(defaultForm);
   const [activeEmail, setActiveEmail] = useState<string | null>(null);
   const [authPending, setAuthPending] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [createdAccountEmail, setCreatedAccountEmail] = useState<string | null>(null);
+  const [portalReady, setPortalReady] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [addressLookupPending, setAddressLookupPending] = useState(false);
+  const [addressMenuOpen, setAddressMenuOpen] = useState(false);
   const passwordStrength = getPasswordStrength(form.password);
   const passwordsMatch =
     !form.confirmPassword || form.password === form.confirmPassword;
@@ -161,8 +266,138 @@ export function VendorAccessPanel({
     };
   }, [supabase]);
 
+  useEffect(() => {
+    if (mode !== "signup") {
+      return;
+    }
+
+    const query = form.streetAddress.trim();
+
+    if (query.length < 4) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setAddressLookupPending(true);
+
+      try {
+        const response = await fetch(`/api/address-search?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Address lookup failed.");
+        }
+
+        const data = (await response.json()) as Array<{
+          display_name?: string;
+          address?: Record<string, string | undefined>;
+        }>;
+
+        const nextSuggestions = data
+          .map(parseAddressSuggestion)
+          .filter((item) => item.label);
+
+        setAddressSuggestions(nextSuggestions);
+        setAddressMenuOpen(nextSuggestions.length > 0);
+      } catch {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setAddressSuggestions([]);
+      } finally {
+        if (!controller.signal.aborted) {
+          setAddressLookupPending(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [form.streetAddress, mode]);
+
+  function validateSignupStep(step: SignupStep) {
+    if (step === 1) {
+      if (!form.firstName.trim()) {
+        return "Add the vendor first name before continuing.";
+      }
+
+      if (!form.lastName.trim()) {
+        return "Add the vendor last name before continuing.";
+      }
+
+      if (!form.streetAddress.trim()) {
+        return "Add the street address before continuing.";
+      }
+
+      if (!form.city.trim() || !form.stateProvince.trim() || !form.postalCode.trim()) {
+        return "Add the city, state or province, and ZIP or postal code before continuing.";
+      }
+
+      if (!form.country.trim()) {
+        return "Add the country before continuing.";
+      }
+
+      if (!form.email.trim()) {
+        return "Add the account email before continuing.";
+      }
+
+      if (!form.password) {
+        return "Create a password before continuing.";
+      }
+
+      if (!form.confirmPassword) {
+        return "Retype the password before continuing.";
+      }
+
+      if (!passwordsMatch) {
+        return "Passwords do not match.";
+      }
+    }
+
+    if (step === 2 && !form.companyName.trim()) {
+      return "Add the company name before continuing.";
+    }
+
+    return null;
+  }
+
+  function handleSignupBack() {
+    setAuthError(null);
+    setAuthMessage(null);
+    setSignupStep((current) =>
+      current > 1 && current < 4 ? ((current - 1) as SignupStep) : current,
+    );
+  }
+
+  function handleSignupNext() {
+    const validationError = validateSignupStep(signupStep);
+
+    if (validationError) {
+      setAuthError(validationError);
+      setAuthMessage(null);
+      return;
+    }
+
+    setAuthError(null);
+    setAuthMessage(null);
+    setSignupStep((current) => (current < 3 ? ((current + 1) as SignupStep) : current));
+  }
+
   async function handleSignUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (signupStep < 3) {
+      handleSignupNext();
+      return;
+    }
 
     if (!supabase) {
       setAuthError(
@@ -171,8 +406,10 @@ export function VendorAccessPanel({
       return;
     }
 
-    if (form.password !== form.confirmPassword) {
-      setAuthError("Passwords do not match.");
+    const validationError = validateSignupStep(signupStep);
+
+    if (validationError) {
+      setAuthError(validationError);
       setAuthMessage(null);
       return;
     }
@@ -196,10 +433,28 @@ export function VendorAccessPanel({
         options: {
           data: {
             account_role: "vendor",
-            owner_name: form.ownerName.trim(),
+            first_name: form.firstName.trim(),
+            last_name: form.lastName.trim(),
+            owner_name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
             company_name: form.companyName.trim(),
             website_url: form.websiteUrl.trim() || null,
-            address: form.address.trim() || null,
+            address:
+              [
+                form.streetAddress.trim(),
+                form.addressLine2.trim(),
+                form.city.trim(),
+                form.stateProvince.trim(),
+                form.postalCode.trim(),
+                form.country.trim(),
+              ]
+                .filter(Boolean)
+                .join(", ") || null,
+            street_address: form.streetAddress.trim() || null,
+            address_line_2: form.addressLine2.trim() || null,
+            city: form.city.trim() || null,
+            state_province: form.stateProvince.trim() || null,
+            postal_code: form.postalCode.trim() || null,
+            country: form.country.trim() || null,
             phone_number: form.phoneNumber.trim() || null,
             company_email: form.email.trim(),
             social_links: socialLinks,
@@ -214,19 +469,18 @@ export function VendorAccessPanel({
 
       if (data.user && data.session) {
         await ensureVendorProfileProvisioned(supabase, data.user);
-        router.push("/vendor");
-        return;
+        setPortalReady(true);
+      } else {
+        setPortalReady(false);
       }
 
+      setCreatedAccountEmail(form.email.trim());
       setAuthMessage(
-        "Vendor account created. If your Supabase project requires email confirmation, verify your email first, then sign in to open the vendor portal.",
+        data.user && data.session
+          ? "Your account is active and ready to open in the vendor portal."
+          : "If email confirmation is enabled in Supabase, verify the account email before opening the vendor portal.",
       );
-      setMode("login");
-      setForm((current) => ({
-        ...current,
-        password: "",
-        confirmPassword: "",
-      }));
+      setSignupStep(4);
     } catch (error) {
       setAuthError(getErrorMessage(error, "Unable to create vendor account."));
     } finally {
@@ -290,6 +544,63 @@ export function VendorAccessPanel({
     }
   }
 
+  const showSignupConfirmation = mode === "signup" && signupStep === 4;
+  const socialSummary = [
+    ...socialFields
+      .map((field) => ({
+        label: field.label,
+        value: form[field.key].trim(),
+      }))
+      .filter((item) => item.value),
+    ...(form.additionalLinks.trim()
+      ? [{ label: "Additional links", value: form.additionalLinks.trim() }]
+      : []),
+  ];
+
+  const summarySections = [
+    {
+      title: "User information",
+      items: [
+        { label: "First name", value: form.firstName.trim() || "Not provided" },
+        { label: "Last name", value: form.lastName.trim() || "Not provided" },
+        {
+          label: "Street address",
+          value: form.streetAddress.trim() || "Not provided",
+        },
+        {
+          label: "Address line 2",
+          value: form.addressLine2.trim() || "Not provided",
+        },
+        { label: "City", value: form.city.trim() || "Not provided" },
+        {
+          label: "State / Province",
+          value: form.stateProvince.trim() || "Not provided",
+        },
+        {
+          label: "ZIP / Postal code",
+          value: form.postalCode.trim() || "Not provided",
+        },
+        { label: "Country", value: form.country.trim() || "Not provided" },
+        { label: "Email", value: form.email.trim() || "Not provided" },
+      ],
+    },
+    {
+      title: "Company details",
+      items: [
+        { label: "Company name", value: form.companyName.trim() || "Not provided" },
+        { label: "Website URL", value: form.websiteUrl.trim() || "Not provided" },
+        { label: "Phone number", value: form.phoneNumber.trim() || "Not provided" },
+        {
+          label: "Social media pages",
+          value:
+            socialSummary.length > 0
+              ? socialSummary.map((item) => `${item.label}: ${item.value}`).join("\n")
+              : "Not provided",
+        },
+      ],
+    },
+  ];
+
   if (!hasSupabaseBrowserEnv() || !supabase) {
     return (
       <section className="isonet-panel p-6 sm:p-8">
@@ -322,7 +633,7 @@ export function VendorAccessPanel({
           </p>
         </div>
 
-        {activeEmail ? (
+        {activeEmail && !showSignupConfirmation ? (
           <div className="rounded-sm border border-[var(--accent)]/28 bg-[var(--accent)]/8 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
               Active vendor session
@@ -377,208 +688,439 @@ export function VendorAccessPanel({
               onSubmit={mode === "signup" ? handleSignUp : handleSignIn}
             >
               {mode === "signup" ? (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
-                      Owner name
-                    </span>
-                    <input
-                      value={form.ownerName}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          ownerName: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
-                      placeholder="Owner or primary contact"
-                    />
-                  </label>
+                <div className="space-y-6">
+                  <div className="rounded-sm border border-white/10 bg-white/4 p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[var(--accent)]">
+                      {signupStepMeta[signupStep].eyebrow}
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-white">
+                      {signupStepMeta[signupStep].title}
+                    </h3>
+                    <p className="mt-3 text-sm leading-7 text-slate-300">
+                      {signupStepMeta[signupStep].description}
+                    </p>
+                  </div>
 
-                  <label className="space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
-                      Company name
-                    </span>
-                    <input
-                      value={form.companyName}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          companyName: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
-                      placeholder="Your company or storefront"
-                    />
-                  </label>
-
-                  <label className="space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
-                      Website URL
-                    </span>
-                    <input
-                      value={form.websiteUrl}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          websiteUrl: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
-                      placeholder="https://yourwebsite.com"
-                    />
-                  </label>
-
-                  <label className="space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
-                      Phone number
-                    </span>
-                    <input
-                      value={form.phoneNumber}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          phoneNumber: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
-                      placeholder="Business phone"
-                    />
-                  </label>
-
-                  <label className="space-y-2 md:col-span-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
-                      Address
-                    </span>
-                    <textarea
-                      value={form.address}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          address: event.target.value,
-                        }))
-                      }
-                      rows={3}
-                      className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
-                      placeholder="Business mailing address"
-                    />
-                  </label>
-
-                  <label className="space-y-2 md:col-span-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
-                      Email
-                    </span>
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          email: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
-                      placeholder="vendor@yourcompany.com"
-                      autoComplete="email"
-                    />
-                  </label>
-
-                  <label className="space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
-                      Password
-                    </span>
-                    <input
-                      type="password"
-                      value={form.password}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          password: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
-                      placeholder="Create a password"
-                      autoComplete="new-password"
-                    />
-                    <div className="space-y-2">
-                      <div className="h-2 overflow-hidden rounded-full bg-white/8">
-                        <div
-                          className={`h-full transition-all duration-200 ${passwordStrength.barClass}`}
-                          style={{ width: `${Math.max(passwordStrength.score, 1) * 25}%` }}
+                  {signupStep === 1 ? (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="space-y-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          First name
+                        </span>
+                        <input
+                          value={form.firstName}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              firstName: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder="First name"
                         />
-                      </div>
-                      <p className={`text-xs font-medium ${passwordStrength.textClass}`}>
-                        Password strength: {passwordStrength.label}
-                      </p>
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          Last name
+                        </span>
+                        <input
+                          value={form.lastName}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              lastName: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder="Last name"
+                        />
+                      </label>
+
+                      <label className="space-y-2 md:col-span-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          Street address
+                        </span>
+                        <div className="relative">
+                          <input
+                            value={form.streetAddress}
+                            onFocus={() => {
+                              if (addressSuggestions.length > 0) {
+                                setAddressMenuOpen(true);
+                              }
+                            }}
+                            onBlur={() => {
+                              window.setTimeout(() => setAddressMenuOpen(false), 150);
+                            }}
+                            onChange={(event) => {
+                              const nextStreetAddress = event.target.value;
+
+                              setForm((current) => ({
+                                ...current,
+                                streetAddress: nextStreetAddress,
+                              }));
+
+                              if (nextStreetAddress.trim().length < 4) {
+                                setAddressSuggestions([]);
+                                setAddressLookupPending(false);
+                                setAddressMenuOpen(false);
+                              }
+                            }}
+                            className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                            placeholder="Start typing your street address"
+                            autoComplete="address-line1"
+                          />
+                          {addressMenuOpen &&
+                          (addressSuggestions.length > 0 || addressLookupPending) ? (
+                            <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-20 rounded-sm border border-white/12 bg-[rgba(5,11,20,0.98)] shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+                              {addressLookupPending ? (
+                                <div className="px-4 py-3 text-sm text-slate-300">
+                                  Looking up address matches...
+                                </div>
+                              ) : (
+                                addressSuggestions.map((suggestion) => (
+                                  <button
+                                    key={suggestion.label}
+                                    type="button"
+                                    onClick={() => {
+                                      setForm((current) => ({
+                                        ...current,
+                                        streetAddress:
+                                          suggestion.streetAddress || current.streetAddress,
+                                        city: suggestion.city,
+                                        stateProvince: suggestion.stateProvince,
+                                        postalCode: suggestion.postalCode,
+                                        country: suggestion.country,
+                                      }));
+                                      setAddressMenuOpen(false);
+                                    }}
+                                    className="block w-full border-b border-white/8 px-4 py-3 text-left text-sm leading-6 text-slate-200 last:border-b-0 hover:bg-white/6"
+                                  >
+                                    {suggestion.label}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          Address line 2
+                        </span>
+                        <input
+                          value={form.addressLine2}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              addressLine2: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder="Suite, apartment, unit, etc."
+                          autoComplete="address-line2"
+                        />
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          City
+                        </span>
+                        <input
+                          value={form.city}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              city: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder="City"
+                          autoComplete="address-level2"
+                        />
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          State / Province
+                        </span>
+                        <input
+                          value={form.stateProvince}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              stateProvince: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder="State or province"
+                          autoComplete="address-level1"
+                        />
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          ZIP / Postal code
+                        </span>
+                        <input
+                          value={form.postalCode}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              postalCode: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder="ZIP or postal code"
+                          autoComplete="postal-code"
+                        />
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          Country
+                        </span>
+                        <input
+                          value={form.country}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              country: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder="Country"
+                          autoComplete="country-name"
+                        />
+                      </label>
+
+                      <label className="space-y-2 md:col-span-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          Email
+                        </span>
+                        <input
+                          type="email"
+                          value={form.email}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              email: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder="vendor@yourcompany.com"
+                          autoComplete="email"
+                        />
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          Password
+                        </span>
+                        <input
+                          type="password"
+                          value={form.password}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              password: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder="Create a password"
+                          autoComplete="new-password"
+                        />
+                        <div className="space-y-2">
+                          <div className="h-2 overflow-hidden rounded-full bg-white/8">
+                            <div
+                              className={`h-full transition-all duration-200 ${passwordStrength.barClass}`}
+                              style={{ width: `${Math.max(passwordStrength.score, 1) * 25}%` }}
+                            />
+                          </div>
+                          <p className={`text-xs font-medium ${passwordStrength.textClass}`}>
+                            Password strength: {passwordStrength.label}
+                          </p>
+                        </div>
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          Retype password
+                        </span>
+                        <input
+                          type="password"
+                          value={form.confirmPassword}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              confirmPassword: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder="Retype your password"
+                          autoComplete="new-password"
+                        />
+                        {form.confirmPassword ? (
+                          <p
+                            className={`text-xs font-medium ${
+                              passwordsMatch ? "text-emerald-200" : "text-rose-200"
+                            }`}
+                          >
+                            {passwordsMatch
+                              ? "Passwords match."
+                              : "Passwords do not match."}
+                          </p>
+                        ) : null}
+                      </label>
                     </div>
-                  </label>
+                  ) : null}
 
-                  <label className="space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
-                      Retype password
-                    </span>
-                    <input
-                      type="password"
-                      value={form.confirmPassword}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          confirmPassword: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
-                      placeholder="Retype your password"
-                      autoComplete="new-password"
-                    />
-                    {form.confirmPassword ? (
-                      <p
-                        className={`text-xs font-medium ${
-                          passwordsMatch ? "text-emerald-200" : "text-rose-200"
-                        }`}
-                      >
-                        {passwordsMatch
-                          ? "Passwords match."
-                          : "Passwords do not match."}
+                  {signupStep === 2 ? (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="space-y-2 md:col-span-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          Company name
+                        </span>
+                        <input
+                          value={form.companyName}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              companyName: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder="Your company or storefront"
+                        />
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          Website URL
+                        </span>
+                        <input
+                          value={form.websiteUrl}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              websiteUrl: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder="https://yourwebsite.com"
+                        />
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          Phone number
+                        </span>
+                        <input
+                          value={form.phoneNumber}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              phoneNumber: formatPhoneNumberInput(event.target.value),
+                            }))
+                          }
+                          inputMode="tel"
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder="(734) 679-2428"
+                        />
+                      </label>
+
+                      {socialFields.map((field) => (
+                        <label key={field.key} className="space-y-2">
+                          <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                            {field.label}
+                          </span>
+                          <input
+                            value={form[field.key]}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                [field.key]: event.target.value,
+                              }))
+                            }
+                            className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                            placeholder={field.placeholder}
+                          />
+                        </label>
+                      ))}
+
+                      <label className="space-y-2 md:col-span-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          Additional links
+                        </span>
+                        <textarea
+                          value={form.additionalLinks}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              additionalLinks: event.target.value,
+                            }))
+                          }
+                          rows={4}
+                          className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                          placeholder={"One per line. Example:\nYouTube | https://youtube.com/@yourbrand\nTikTok | https://tiktok.com/@yourbrand"}
+                        />
+                      </label>
+                    </div>
+                  ) : null}
+
+                  {signupStep === 3 ? (
+                    <div className="space-y-4">
+                      {summarySections.map((section) => (
+                        <div
+                          key={section.title}
+                          className="rounded-sm border border-white/10 bg-white/4 p-4"
+                        >
+                          <h4 className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-200">
+                            {section.title}
+                          </h4>
+                          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            {section.items.map((item) => (
+                              <div
+                                key={`${section.title}-${item.label}`}
+                                className="rounded-sm border border-white/8 bg-slate-950/50 p-3"
+                              >
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                  {item.label}
+                                </p>
+                                <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-100">
+                                  {item.value}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {signupStep === 4 ? (
+                    <div className="space-y-4 rounded-sm border border-emerald-300/30 bg-emerald-200/10 p-5">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200">
+                        Vendor application created
                       </p>
-                    ) : null}
-                  </label>
-
-                  {socialFields.map((field) => (
-                    <label key={field.key} className="space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
-                        {field.label}
-                      </span>
-                      <input
-                        value={form[field.key]}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            [field.key]: event.target.value,
-                          }))
-                        }
-                        className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
-                        placeholder={field.placeholder}
-                      />
-                    </label>
-                  ))}
-
-                  <label className="space-y-2 md:col-span-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
-                      Additional links
-                    </span>
-                    <textarea
-                      value={form.additionalLinks}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          additionalLinks: event.target.value,
-                        }))
-                      }
-                      rows={4}
-                      className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
-                      placeholder={"One per line. Example:\nYouTube | https://youtube.com/@yourbrand\nTikTok | https://tiktok.com/@yourbrand"}
-                    />
-                  </label>
+                      <h4 className="text-2xl font-semibold tracking-tight text-white">
+                        Your application has been submitted for approval.
+                      </h4>
+                      <p className="text-sm leading-7 text-slate-100">
+                        {(createdAccountEmail || form.email.trim() || "This account")} has been
+                        entered into the approval process. You can still access the vendor
+                        portal and dashboard while your status is awaiting approval.
+                      </p>
+                      <button
+                        type="button"
+                        className="isonet-button"
+                        onClick={() => router.push("/vendor")}
+                      >
+                        {portalReady ? "Open vendor portal dashboard" : "Go to vendor portal"}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
@@ -634,24 +1176,39 @@ export function VendorAccessPanel({
                 </div>
               ) : null}
 
-              <div className="flex flex-wrap gap-3">
-                <button type="submit" className="isonet-button" disabled={authPending}>
-                  {authPending
-                    ? mode === "signup"
-                      ? "Creating account"
-                      : "Signing in"
-                    : mode === "signup"
-                      ? "Create vendor account"
-                      : "Open vendor portal"}
-                </button>
-                <button
-                  type="button"
-                  className="isonet-button-secondary"
-                  onClick={() => router.push("/vendor")}
-                >
-                  Go to portal
-                </button>
-              </div>
+              {mode === "signup" ? (
+                signupStep < 4 ? (
+                  <div className="grid gap-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+                    <button
+                      type="button"
+                      className="isonet-button-secondary"
+                      onClick={handleSignupBack}
+                      disabled={signupStep === 1 || authPending}
+                    >
+                      Back
+                    </button>
+                    <p className="text-center text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                      {signupStep} of 4
+                    </p>
+                    <button type="submit" className="isonet-button sm:justify-self-end" disabled={authPending}>
+                      {authPending ? "Creating account" : signupStep === 3 ? "Finish" : "Next"}
+                    </button>
+                  </div>
+                ) : null
+              ) : (
+                <div className="flex flex-wrap gap-3">
+                  <button type="submit" className="isonet-button" disabled={authPending}>
+                    {authPending ? "Signing in" : "Open vendor portal"}
+                  </button>
+                  <button
+                    type="button"
+                    className="isonet-button-secondary"
+                    onClick={() => router.push("/vendor")}
+                  >
+                    Go to portal
+                  </button>
+                </div>
+              )}
             </form>
           </>
         )}

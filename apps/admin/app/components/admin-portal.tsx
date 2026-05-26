@@ -97,6 +97,27 @@ const placeholderContent: Record<
   },
 };
 
+function formatAdminStructuredAddress(profile: AdminVendorDetail["profile"]) {
+  if (!profile) {
+    return "Not set";
+  }
+
+  return (
+    [
+      profile.street_address,
+      profile.address_line_2,
+      profile.city,
+      profile.state_province,
+      profile.postal_code,
+      profile.country,
+    ]
+      .filter(Boolean)
+      .join(", ") ||
+    profile.address ||
+    "Not set"
+  );
+}
+
 function normalizePanels(data: unknown): HomepagePanel[] {
   if (!Array.isArray(data) || data.length === 0) {
     return defaultHomepagePanels;
@@ -1237,7 +1258,11 @@ export function AdminPortal({
                             {vendorDetail.profile.company_name}
                           </h3>
                           <p className="mt-2 text-sm leading-6 text-slate-300">
-                            {vendorDetail.profile.owner_name} · {vendorDetail.profile.email}
+                            {[vendorDetail.profile.first_name, vendorDetail.profile.last_name]
+                              .filter(Boolean)
+                              .join(" ") ||
+                              vendorDetail.profile.owner_name}{" "}
+                            · {vendorDetail.profile.email}
                           </p>
                         </div>
 
@@ -1306,6 +1331,14 @@ export function AdminPortal({
                           <div className="grid gap-3 sm:grid-cols-2">
                             {[
                               {
+                                label: "First name",
+                                value: vendorDetail.profile.first_name ?? "Not set",
+                              },
+                              {
+                                label: "Last name",
+                                value: vendorDetail.profile.last_name ?? "Not set",
+                              },
+                              {
                                 label: "Website",
                                 value: vendorDetail.profile.website_url ?? "Not set",
                               },
@@ -1314,8 +1347,35 @@ export function AdminPortal({
                                 value: vendorDetail.profile.phone_number ?? "Not set",
                               },
                               {
-                                label: "Address",
-                                value: vendorDetail.profile.address ?? "Not set",
+                                label: "Street address",
+                                value:
+                                  vendorDetail.profile.street_address ??
+                                  vendorDetail.profile.address ??
+                                  "Not set",
+                              },
+                              {
+                                label: "Address line 2",
+                                value: vendorDetail.profile.address_line_2 ?? "Not set",
+                              },
+                              {
+                                label: "City",
+                                value: vendorDetail.profile.city ?? "Not set",
+                              },
+                              {
+                                label: "State / Province",
+                                value: vendorDetail.profile.state_province ?? "Not set",
+                              },
+                              {
+                                label: "ZIP / Postal code",
+                                value: vendorDetail.profile.postal_code ?? "Not set",
+                              },
+                              {
+                                label: "Country",
+                                value: vendorDetail.profile.country ?? "Not set",
+                              },
+                              {
+                                label: "Full address",
+                                value: formatAdminStructuredAddress(vendorDetail.profile),
                               },
                               {
                                 label: "Start date",
