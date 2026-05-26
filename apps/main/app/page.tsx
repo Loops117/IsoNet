@@ -1,6 +1,5 @@
 import { MissionPanels } from "./components/mission-panels";
 import { TimelineProgress } from "./components/timeline-progress";
-
 const timelineSteps = [
   {
     label: "Home Page",
@@ -11,9 +10,10 @@ const timelineSteps = [
   },
   {
     label: "Vendor Portal",
-    done: false,
+    done: true,
+    status: "Done",
     description:
-      "A dedicated vendor area for member access, profile management, applications, and future marketplace tools.",
+      "A dedicated vendor signup page and the first vendor dashboard are now live with profile, reviews, analytics, and subscription tracking.",
   },
   {
     label: "Customer Portal",
@@ -89,6 +89,9 @@ export default function Home() {
                 <a className="isonet-link" href="#directory">
                   Directory
                 </a>
+                <a className="isonet-link" href="/vendor/signup">
+                  Vendor Access
+                </a>
                 <a className="isonet-link" href="#standards">
                   Standards
                 </a>
@@ -118,11 +121,11 @@ export default function Home() {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <a className="isonet-button" href="#directory">
-                  View public mission
+                <a className="isonet-button" href="/vendor/signup">
+                  Vendor sign up
                 </a>
-                <a className="isonet-button-secondary" href="#standards">
-                  Read the standards plan
+                <a className="isonet-button-secondary" href="/vendor">
+                  Open vendor portal
                 </a>
               </div>
             </div>

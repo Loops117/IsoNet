@@ -30,18 +30,18 @@ export function TimelineProgress({ steps }: TimelineProgressProps) {
       onMouseLeave={() => setActiveIndex(defaultIndex)}
     >
       <div className="overflow-x-auto pb-1 isonet-scrollbar">
-        <div className="flex min-w-[760px] items-start">
+        <div className="flex min-w-[640px] items-start sm:min-w-[760px]">
           {steps.map((step, index) => {
             const nextStep = steps[index + 1];
             const connectorComplete = Boolean(step.done && nextStep?.done);
 
             return (
               <div key={step.label} className="flex min-w-0 flex-1 items-start">
-                <div className="flex w-28 shrink-0 flex-col items-center text-center">
+                <div className="flex w-24 shrink-0 flex-col items-center text-center sm:w-28">
                   <div className="relative flex w-full flex-col items-center">
                     <div
                       className={[
-                        "pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-[11rem] -translate-x-1/2 rounded-sm border px-3 py-2 text-left text-[11px] font-medium leading-5 transition-all duration-150",
+                        "pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-[9rem] -translate-x-1/2 rounded-sm border px-3 py-2 text-left text-[10px] font-medium leading-4 transition-all duration-150 sm:w-[11rem] sm:text-[11px] sm:leading-5",
                         activeIndex === index
                           ? "border-white/16 bg-[rgba(8,20,39,0.96)] text-slate-200 opacity-100 shadow-[0_14px_32px_rgba(0,0,0,0.28)]"
                           : "border-transparent bg-transparent text-transparent opacity-0",
@@ -67,7 +67,7 @@ export function TimelineProgress({ steps }: TimelineProgressProps) {
                       {index + 1}
                     </button>
 
-                    <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white">
+                    <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white sm:mt-3 sm:text-[11px] sm:tracking-[0.14em]">
                       {step.label}
                     </p>
 

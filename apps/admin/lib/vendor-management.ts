@@ -1,0 +1,127 @@
+export type AdminVendorAccountStatus =
+  | "pending_review"
+  | "not_approved"
+  | "approved"
+  | "in_good_standing"
+  | "active"
+  | "needs_updates"
+  | "suspended";
+
+export type AdminVendorSummary = {
+  user_id: string;
+  owner_name: string;
+  company_name: string;
+  email: string;
+  account_status: AdminVendorAccountStatus;
+  company_logo_url: string | null;
+  average_rating: number;
+  review_count: number;
+  start_date: string;
+  note_count: number;
+  dispute_count: number;
+};
+
+export type AdminVendorSocialLink = {
+  id: string;
+  vendor_user_id: string;
+  platform: string;
+  url: string;
+  sort_order: number;
+};
+
+export type AdminVendorSubscription = {
+  vendor_user_id: string;
+  tier_name: string;
+  status: string;
+  started_at: string;
+  renews_at: string | null;
+  canceled_at: string | null;
+};
+
+export type AdminVendorNote = {
+  id: string;
+  vendor_user_id: string;
+  author_email: string;
+  note_body: string;
+  created_at: string;
+};
+
+export type AdminVendorReview = {
+  id: string;
+  vendor_user_id: string;
+  reviewer_name: string;
+  rating: number;
+  title: string | null;
+  body: string | null;
+  review_status: string;
+  published_at: string;
+};
+
+export type AdminVendorDispute = {
+  id: string;
+  review_id: string;
+  vendor_user_id: string;
+  submitted_by_user_id: string;
+  subject: string;
+  detail: string;
+  dispute_status: string;
+  admin_resolution_note: string | null;
+  resolved_by_email: string | null;
+  resolved_at: string | null;
+  created_at: string;
+};
+
+export type AdminVendorDetail = {
+  profile: {
+    user_id: string;
+    owner_name: string;
+    company_name: string;
+    website_url: string | null;
+    address: string | null;
+    phone_number: string | null;
+    email: string;
+    account_status: AdminVendorAccountStatus;
+    badge_url: string | null;
+    company_logo_url: string | null;
+    average_rating: number;
+    review_count: number;
+    start_date: string;
+  } | null;
+  socialLinks: AdminVendorSocialLink[];
+  subscription: AdminVendorSubscription | null;
+  notes: AdminVendorNote[];
+  reviews: AdminVendorReview[];
+  disputes: AdminVendorDispute[];
+};
+
+export const adminVendorStatusOptions: AdminVendorAccountStatus[] = [
+  "not_approved",
+  "approved",
+  "in_good_standing",
+  "needs_updates",
+  "suspended",
+];
+
+export function formatAdminVendorStatus(value: string | null | undefined) {
+  if (!value) {
+    return "Unknown";
+  }
+
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+}
+
+export function formatAdminDate(value: string | null | undefined) {
+  if (!value) {
+    return "Not set";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}

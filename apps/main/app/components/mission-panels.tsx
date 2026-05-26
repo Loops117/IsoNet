@@ -10,11 +10,12 @@ export function MissionPanels() {
   const [activePanel, setActivePanel] = useState("why-isonet");
 
   useEffect(() => {
-    const client = getSupabaseBrowserClient();
+    const supabaseClient = getSupabaseBrowserClient();
 
-    if (!hasSupabaseBrowserEnv() || !client) {
+    if (!hasSupabaseBrowserEnv() || !supabaseClient) {
       return;
     }
+    const client = supabaseClient;
     let isMounted = true;
 
     async function loadPanels() {
@@ -79,7 +80,7 @@ export function MissionPanels() {
                 : "border-white/10 bg-white/4 hover:bg-white/6 lg:flex-1",
             ].join(" ")}
           >
-            <div className="flex h-full min-h-[18rem] flex-col p-5 sm:min-h-[20rem] sm:p-6 lg:min-h-0">
+            <div className="flex h-full min-h-[14rem] flex-col p-4 sm:min-h-[17rem] sm:p-5 lg:min-h-0 lg:p-6">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--accent)]">
                   {panel.eyebrow}
