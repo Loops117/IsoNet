@@ -316,10 +316,6 @@ export default function Home() {
               IsoNet. Vendor directories, review systems, standards pages, and
               account features will be connected in the next development stages.
             </p>
-            <div className="mt-8 rounded-sm border border-[var(--accent)]/30 bg-[var(--accent)]/8 px-5 py-4 text-sm leading-7 text-slate-200">
-              Administrative tools remain separate from the public site and are
-              handled through the dedicated admin portal.
-            </div>
           </article>
         </section>
       </div>
