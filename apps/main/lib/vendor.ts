@@ -1,5 +1,12 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
+import {
+  type VendorStatementAgreementRecord,
+  buildStatementAgreementRecords,
+} from "./vendor-statement-agreements";
+
+export type { VendorStatementAgreementRecord };
+
 export type VendorAccountStatus =
   | "pending_review"
   | "not_approved"
@@ -398,5 +405,41 @@ export async function ensureVendorProfileProvisioned(
 
   if (subscriptionError) {
     throw subscriptionError;
+  }
+}
+
+export async function recordVendorStatementAgreements(
+  client: SupabaseClient,
+  vendorUserId: string,
+  agreements: Record<string, boolean>,
+  agreedAt: string = new Date().toISOString(),
+) {
+  const records = buildStatementAgreementRecords(agreements, agreedAt);
+
+  if (records.length === 0) {
+    return;
+  }
+
+  const { error: deleteError } = await client
+    .from("vendor_statement_agreements")
+    .delete()
+    .eq("vendor_user_id", vendorUserId);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  const { error: insertError } = await client.from("vendor_statement_agreements").insert(
+    records.map((record) => ({
+      vendor_user_id: vendorUserId,
+      agreement_key: record.key,
+      agreement_title: record.title,
+      agreed_at: record.agreed_at,
+      statement_version: record.statement_version,
+    })),
+  );
+
+  if (insertError) {
+    throw insertError;
   }
 }

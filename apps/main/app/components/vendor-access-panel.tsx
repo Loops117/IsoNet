@@ -1,16 +1,30 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { getSupabaseBrowserClient, hasSupabaseBrowserEnv } from "../../lib/supabase";
 import {
+  VENDOR_SIGNUP_CONFIRM_STEP,
+  VENDOR_SIGNUP_FIRST_AGREEMENT_STEP,
+  VENDOR_SIGNUP_LAST_AGREEMENT_STEP,
+  VENDOR_SIGNUP_REVIEW_STEP,
+  VENDOR_SIGNUP_STEP_COUNT,
+  allStatementAgreementsAccepted,
+  buildStatementAgreementRecords,
+  createEmptyAgreementState,
+  getAgreementPageForStep,
+  vendorStatementAgreements,
+} from "../../lib/vendor-statement-agreements";
+import {
   createVendorSocialLinksFromFields,
   ensureVendorProfileProvisioned,
+  recordVendorStatementAgreements,
 } from "../../lib/vendor";
 
 type AccessMode = "signup" | "login";
-type SignupStep = 1 | 2 | 3 | 4;
+type SignupStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 type VendorAccessPanelProps = {
   initialMode?: AccessMode;
@@ -73,32 +87,59 @@ const socialFields = [
   },
 ] as const;
 
-const signupStepMeta: Record<SignupStep, SignupStepMeta> = {
-  1: {
-    eyebrow: "Step 1",
-    title: "User information",
-    description:
-      "Add the primary contact information we need to identify the vendor account and route it through approval.",
-  },
-  2: {
-    eyebrow: "Step 2",
-    title: "Company details",
-    description:
-      "Share the storefront and social pages you want associated with your vendor profile inside The Isopod Network.",
-  },
-  3: {
-    eyebrow: "Step 3",
-    title: "Review your application",
-    description:
-      "Confirm the information below before submitting the vendor application for approval.",
-  },
-  4: {
-    eyebrow: "Step 4",
-    title: "Application received",
-    description:
-      "Your vendor account has been created and sent into the approval process. You can still access your portal while approval is pending.",
-  },
-};
+function getSignupStepMeta(step: SignupStep): SignupStepMeta {
+  if (step === 1) {
+    return {
+      eyebrow: "Step 1",
+      title: "User information",
+      description:
+        "Add the primary contact information we need to identify the vendor account and route it through approval.",
+    };
+  }
+
+  if (step === 2) {
+    return {
+      eyebrow: "Step 2",
+      title: "Company details",
+      description:
+        "Share the storefront and social pages you want associated with your vendor profile inside The Isopod Network.",
+    };
+  }
+
+  if (step === VENDOR_SIGNUP_REVIEW_STEP) {
+    return {
+      eyebrow: `Step ${step}`,
+      title: "Review your application",
+      description:
+        "Confirm your contact details, company information, and statement agreements before submitting for approval.",
+    };
+  }
+
+  if (step === VENDOR_SIGNUP_CONFIRM_STEP) {
+    return {
+      eyebrow: `Step ${step}`,
+      title: "Application received",
+      description:
+        "Your vendor account has been created and sent into the approval process. You can still access your portal while approval is pending.",
+    };
+  }
+
+  const agreementPage = getAgreementPageForStep(step);
+
+  if (agreementPage) {
+    return {
+      eyebrow: agreementPage.eyebrow,
+      title: agreementPage.title,
+      description: agreementPage.description,
+    };
+  }
+
+  return {
+    eyebrow: `Step ${step}`,
+    title: "Vendor standards",
+    description: "Confirm the agreements required to join The Isopod Network.",
+  };
+}
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object" && "message" in error) {
@@ -228,6 +269,7 @@ export function VendorAccessPanel({
   const [mode] = useState<AccessMode>(initialMode);
   const [signupStep, setSignupStep] = useState<SignupStep>(1);
   const [form, setForm] = useState(defaultForm);
+  const [statementAgreements, setStatementAgreements] = useState(createEmptyAgreementState);
   const [activeEmail, setActiveEmail] = useState<string | null>(null);
   const [authPending, setAuthPending] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -366,6 +408,29 @@ export function VendorAccessPanel({
       return "Add the company name before continuing.";
     }
 
+    if (
+      step >= VENDOR_SIGNUP_FIRST_AGREEMENT_STEP &&
+      step <= VENDOR_SIGNUP_LAST_AGREEMENT_STEP
+    ) {
+      const agreementPage = getAgreementPageForStep(step);
+
+      if (!agreementPage) {
+        return "Unable to load the agreement step. Refresh and try again.";
+      }
+
+      const missingAgreement = agreementPage.agreements.find(
+        (agreement) => !statementAgreements[agreement.key],
+      );
+
+      if (missingAgreement) {
+        return `Confirm the agreement for “${missingAgreement.title}” before continuing.`;
+      }
+    }
+
+    if (step === VENDOR_SIGNUP_REVIEW_STEP && !allStatementAgreementsAccepted(statementAgreements)) {
+      return "Confirm every statement agreement before finishing signup.";
+    }
+
     return null;
   }
 
@@ -373,7 +438,9 @@ export function VendorAccessPanel({
     setAuthError(null);
     setAuthMessage(null);
     setSignupStep((current) =>
-      current > 1 && current < 4 ? ((current - 1) as SignupStep) : current,
+      current > 1 && current < VENDOR_SIGNUP_CONFIRM_STEP
+        ? ((current - 1) as SignupStep)
+        : current,
     );
   }
 
@@ -388,13 +455,15 @@ export function VendorAccessPanel({
 
     setAuthError(null);
     setAuthMessage(null);
-    setSignupStep((current) => (current < 3 ? ((current + 1) as SignupStep) : current));
+    setSignupStep((current) =>
+      current < VENDOR_SIGNUP_REVIEW_STEP ? ((current + 1) as SignupStep) : current,
+    );
   }
 
   async function handleSignUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (signupStep < 3) {
+    if (signupStep < VENDOR_SIGNUP_REVIEW_STEP) {
       handleSignupNext();
       return;
     }
@@ -459,6 +528,7 @@ export function VendorAccessPanel({
             company_email: form.email.trim(),
             social_links: socialLinks,
             subscription_tier: "Application",
+            statement_agreements: buildStatementAgreementRecords(statementAgreements),
           },
         },
       });
@@ -469,6 +539,7 @@ export function VendorAccessPanel({
 
       if (data.user && data.session) {
         await ensureVendorProfileProvisioned(supabase, data.user);
+        await recordVendorStatementAgreements(supabase, data.user.id, statementAgreements);
         setPortalReady(true);
       } else {
         setPortalReady(false);
@@ -480,7 +551,7 @@ export function VendorAccessPanel({
           ? "Your account is active and ready to open in the vendor portal."
           : "If email confirmation is enabled in Supabase, verify the account email before opening the vendor portal.",
       );
-      setSignupStep(4);
+      setSignupStep(VENDOR_SIGNUP_CONFIRM_STEP);
     } catch (error) {
       setAuthError(getErrorMessage(error, "Unable to create vendor account."));
     } finally {
@@ -544,7 +615,9 @@ export function VendorAccessPanel({
     }
   }
 
-  const showSignupConfirmation = mode === "signup" && signupStep === 4;
+  const showSignupConfirmation =
+    mode === "signup" && signupStep === VENDOR_SIGNUP_CONFIRM_STEP;
+  const activeAgreementPage = getAgreementPageForStep(signupStep);
   const socialSummary = [
     ...socialFields
       .map((field) => ({
@@ -598,6 +671,13 @@ export function VendorAccessPanel({
               : "Not provided",
         },
       ],
+    },
+    {
+      title: "Statement agreements",
+      items: vendorStatementAgreements.map((agreement) => ({
+        label: agreement.title,
+        value: statementAgreements[agreement.key] ? "Agreed" : "Not confirmed",
+      })),
     },
   ];
 
@@ -691,14 +771,23 @@ export function VendorAccessPanel({
                 <div className="space-y-6">
                   <div className="rounded-sm border border-white/10 bg-white/4 p-4">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[var(--accent)]">
-                      {signupStepMeta[signupStep].eyebrow}
+                      {getSignupStepMeta(signupStep).eyebrow}
                     </p>
                     <h3 className="mt-2 text-xl font-semibold text-white">
-                      {signupStepMeta[signupStep].title}
+                      {getSignupStepMeta(signupStep).title}
                     </h3>
                     <p className="mt-3 text-sm leading-7 text-slate-300">
-                      {signupStepMeta[signupStep].description}
+                      {getSignupStepMeta(signupStep).description}
                     </p>
+                    {activeAgreementPage ? (
+                      <p className="mt-3 text-sm leading-7 text-slate-400">
+                        Read the full public{" "}
+                        <Link href="/statement" className="isonet-link font-semibold">
+                          IsoNet statement
+                        </Link>{" "}
+                        for complete context on each standard.
+                      </p>
+                    ) : null}
                   </div>
 
                   {signupStep === 1 ? (
@@ -1069,7 +1158,47 @@ export function VendorAccessPanel({
                     </div>
                   ) : null}
 
-                  {signupStep === 3 ? (
+                  {activeAgreementPage ? (
+                    <div className="space-y-4">
+                      {activeAgreementPage.agreements.map((agreement) => (
+                        <label
+                          key={agreement.key}
+                          className="flex cursor-pointer gap-4 rounded-sm border border-white/10 bg-white/4 p-4 transition-colors hover:border-white/16"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={statementAgreements[agreement.key]}
+                            onChange={(event) =>
+                              setStatementAgreements((current) => ({
+                                ...current,
+                                [agreement.key]: event.target.checked,
+                              }))
+                            }
+                            className="mt-1 h-4 w-4 shrink-0 rounded-sm border-white/20 bg-slate-950/80 accent-[var(--accent)]"
+                          />
+                          <span className="space-y-2">
+                            <span className="block text-sm font-semibold uppercase tracking-[0.16em] text-slate-100">
+                              {agreement.title}
+                            </span>
+                            <span className="block text-sm leading-7 text-slate-300">
+                              {agreement.summary}
+                            </span>
+                            <Link
+                              href={`/statement#${agreement.statementAnchor}`}
+                              className="isonet-link inline-block text-xs font-semibold uppercase tracking-[0.16em]"
+                            >
+                              Read in our statement →
+                            </Link>
+                            <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">
+                              {agreement.checkboxLabel}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {signupStep === VENDOR_SIGNUP_REVIEW_STEP ? (
                     <div className="space-y-4">
                       {summarySections.map((section) => (
                         <div
@@ -1099,7 +1228,7 @@ export function VendorAccessPanel({
                     </div>
                   ) : null}
 
-                  {signupStep === 4 ? (
+                  {signupStep === VENDOR_SIGNUP_CONFIRM_STEP ? (
                     <div className="space-y-4 rounded-sm border border-emerald-300/30 bg-emerald-200/10 p-5">
                       <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200">
                         Vendor application created
@@ -1177,7 +1306,7 @@ export function VendorAccessPanel({
               ) : null}
 
               {mode === "signup" ? (
-                signupStep < 4 ? (
+                signupStep < VENDOR_SIGNUP_CONFIRM_STEP ? (
                   <div className="grid gap-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
                     <button
                       type="button"
@@ -1188,10 +1317,14 @@ export function VendorAccessPanel({
                       Back
                     </button>
                     <p className="text-center text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
-                      {signupStep} of 4
+                      {signupStep} of {VENDOR_SIGNUP_STEP_COUNT}
                     </p>
                     <button type="submit" className="isonet-button sm:justify-self-end" disabled={authPending}>
-                      {authPending ? "Creating account" : signupStep === 3 ? "Finish" : "Next"}
+                      {authPending
+                        ? "Creating account"
+                        : signupStep === VENDOR_SIGNUP_REVIEW_STEP
+                          ? "Finish"
+                          : "Next"}
                     </button>
                   </div>
                 ) : null

@@ -402,6 +402,7 @@ export function AdminPortal({
       notes: body?.notes ?? [],
       reviews: body?.reviews ?? [],
       disputes: body?.disputes ?? [],
+      statementAgreements: body?.statementAgreements ?? [],
     };
 
     setVendorDetail(detail);
@@ -519,6 +520,7 @@ export function AdminPortal({
           notes: body?.notes ?? [],
           reviews: body?.reviews ?? [],
           disputes: body?.disputes ?? [],
+          statementAgreements: body?.statementAgreements ?? [],
         };
 
         setVendorDetail(detail);
@@ -1402,6 +1404,38 @@ export function AdminPortal({
                                 </p>
                               </div>
                             ))}
+                          </div>
+
+                          <div className="rounded-sm border border-white/10 bg-white/4 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">
+                              Statement agreements
+                            </p>
+                            <div className="mt-4 space-y-2">
+                              {vendorDetail.statementAgreements.length > 0 ? (
+                                vendorDetail.statementAgreements.map((agreement) => (
+                                  <div
+                                    key={agreement.id}
+                                    className="rounded-sm border border-emerald-300/20 bg-emerald-200/6 p-3"
+                                  >
+                                    <p className="text-sm font-semibold text-slate-100">
+                                      {agreement.agreement_title}
+                                    </p>
+                                    <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-200/90">
+                                      Agreed · {formatAdminDate(agreement.agreed_at)}
+                                    </p>
+                                    <p className="mt-2 text-xs leading-5 text-slate-400">
+                                      Version {agreement.statement_version} ·{" "}
+                                      {agreement.agreement_key}
+                                    </p>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="rounded-sm border border-amber-300/20 bg-amber-200/6 p-3 text-sm leading-6 text-slate-300">
+                                  No statement agreements were recorded for this vendor
+                                  yet.
+                                </div>
+                              )}
+                            </div>
                           </div>
 
                           <div className="rounded-sm border border-white/10 bg-white/4 p-4">

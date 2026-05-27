@@ -32,8 +32,15 @@ export async function GET(_request: Request, context: RouteContext) {
   const { vendorId } = await context.params;
   const supabase = getSupabaseServerClient();
 
-  const [profileResult, socialResult, subscriptionResult, notesResult, reviewsResult, disputesResult] =
-    await Promise.all([
+  const [
+    profileResult,
+    socialResult,
+    subscriptionResult,
+    notesResult,
+    reviewsResult,
+    disputesResult,
+    agreementsResult,
+  ] = await Promise.all([
       supabase
         .from("vendor_profiles")
         .select(
@@ -70,6 +77,13 @@ export async function GET(_request: Request, context: RouteContext) {
         )
         .eq("vendor_user_id", vendorId)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("vendor_statement_agreements")
+        .select(
+          "id, vendor_user_id, agreement_key, agreement_title, agreed_at, statement_version, created_at",
+        )
+        .eq("vendor_user_id", vendorId)
+        .order("agreed_at", { ascending: true }),
     ]);
 
   for (const result of [
@@ -79,6 +93,7 @@ export async function GET(_request: Request, context: RouteContext) {
     notesResult,
     reviewsResult,
     disputesResult,
+    agreementsResult,
   ]) {
     if (result.error) {
       return NextResponse.json({ error: result.error.message }, { status: 500 });
@@ -92,6 +107,7 @@ export async function GET(_request: Request, context: RouteContext) {
     notes: notesResult.data ?? [],
     reviews: reviewsResult.data ?? [],
     disputes: disputesResult.data ?? [],
+    statementAgreements: agreementsResult.data ?? [],
   });
 }
 

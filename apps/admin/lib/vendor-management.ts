@@ -71,6 +71,16 @@ export type AdminVendorDispute = {
   created_at: string;
 };
 
+export type AdminVendorStatementAgreement = {
+  id: string;
+  vendor_user_id: string;
+  agreement_key: string;
+  agreement_title: string;
+  agreed_at: string;
+  statement_version: string;
+  created_at: string;
+};
+
 export type AdminVendorDetail = {
   profile: {
     user_id: string;
@@ -100,6 +110,7 @@ export type AdminVendorDetail = {
   notes: AdminVendorNote[];
   reviews: AdminVendorReview[];
   disputes: AdminVendorDispute[];
+  statementAgreements: AdminVendorStatementAgreement[];
 };
 
 export const adminVendorStatusOptions: AdminVendorAccountStatus[] = [
