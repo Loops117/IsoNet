@@ -52,5 +52,20 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const { error: activityError } = await supabase.from("vendor_admin_activity").insert({
+    vendor_user_id: vendorId,
+    activity_type: "note_added",
+    actor_email: adminSession.email,
+    summary: `${adminSession.email} added an internal admin note.`,
+    metadata: {
+      note_id: data.id,
+      note_body: noteBody,
+    },
+  });
+
+  if (activityError) {
+    return NextResponse.json({ error: activityError.message }, { status: 500 });
+  }
+
   return NextResponse.json({ note: data });
 }

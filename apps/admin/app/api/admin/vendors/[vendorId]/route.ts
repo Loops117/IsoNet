@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getAdminSession } from "../../../../../lib/admin-session";
+import { formatAdminVendorStatus } from "../../../../../lib/vendor-management";
 import {
   getSupabaseServerClient,
   hasSupabaseServiceRoleEnv,
@@ -40,6 +41,7 @@ export async function GET(_request: Request, context: RouteContext) {
     reviewsResult,
     disputesResult,
     agreementsResult,
+    activityResult,
   ] = await Promise.all([
       supabase
         .from("vendor_profiles")
@@ -84,6 +86,13 @@ export async function GET(_request: Request, context: RouteContext) {
         )
         .eq("vendor_user_id", vendorId)
         .order("agreed_at", { ascending: true }),
+      supabase
+        .from("vendor_admin_activity")
+        .select(
+          "id, vendor_user_id, activity_type, actor_email, summary, metadata, created_at",
+        )
+        .eq("vendor_user_id", vendorId)
+        .order("created_at", { ascending: false }),
     ]);
 
   for (const result of [
@@ -94,6 +103,7 @@ export async function GET(_request: Request, context: RouteContext) {
     reviewsResult,
     disputesResult,
     agreementsResult,
+    activityResult,
   ]) {
     if (result.error) {
       return NextResponse.json({ error: result.error.message }, { status: 500 });
@@ -108,6 +118,7 @@ export async function GET(_request: Request, context: RouteContext) {
     reviews: reviewsResult.data ?? [],
     disputes: disputesResult.data ?? [],
     statementAgreements: agreementsResult.data ?? [],
+    adminActivity: activityResult.data ?? [],
   });
 }
 
@@ -137,6 +148,26 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const supabase = getSupabaseServerClient();
+  const { data: existingProfile, error: existingError } = await supabase
+    .from("vendor_profiles")
+    .select("account_status")
+    .eq("user_id", vendorId)
+    .maybeSingle();
+
+  if (existingError) {
+    return NextResponse.json({ error: existingError.message }, { status: 500 });
+  }
+
+  if (!existingProfile) {
+    return NextResponse.json({ error: "Vendor not found." }, { status: 404 });
+  }
+
+  const previousStatus = existingProfile.account_status;
+
+  if (previousStatus === accountStatus) {
+    return NextResponse.json({ ok: true, unchanged: true });
+  }
+
   const { error } = await supabase
     .from("vendor_profiles")
     .update({ account_status: accountStatus })
@@ -144,6 +175,27 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const activityType = accountStatus === "approved" ? "approved" : "status_change";
+  const summary =
+    activityType === "approved"
+      ? `${adminSession.email} approved this vendor account.`
+      : `Status changed from ${formatAdminVendorStatus(previousStatus)} to ${formatAdminVendorStatus(accountStatus)}.`;
+
+  const { error: activityError } = await supabase.from("vendor_admin_activity").insert({
+    vendor_user_id: vendorId,
+    activity_type: activityType,
+    actor_email: adminSession.email,
+    summary,
+    metadata: {
+      from_status: previousStatus,
+      to_status: accountStatus,
+    },
+  });
+
+  if (activityError) {
+    return NextResponse.json({ error: activityError.message }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

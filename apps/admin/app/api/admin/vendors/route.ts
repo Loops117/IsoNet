@@ -3,24 +3,6 @@ import { NextResponse } from "next/server";
 import { getAdminSession } from "../../../../lib/admin-session";
 import { getSupabaseServerClient, hasSupabaseServiceRoleEnv } from "../../../../lib/supabase-server";
 
-function statusRank(status: string) {
-  switch (status) {
-    case "not_approved":
-    case "pending_review":
-      return 0;
-    case "needs_updates":
-      return 1;
-    case "approved":
-      return 2;
-    case "in_good_standing":
-      return 3;
-    case "suspended":
-      return 4;
-    default:
-      return 5;
-  }
-}
-
 export async function GET() {
   const adminSession = await getAdminSession();
 
@@ -44,7 +26,7 @@ export async function GET() {
     supabase
       .from("vendor_profiles")
       .select(
-        "user_id, owner_name, company_name, email, account_status, company_logo_url, average_rating, review_count, start_date",
+        "user_id, owner_name, first_name, last_name, company_name, email, phone_number, address, street_address, address_line_2, city, state_province, postal_code, country, account_status, company_logo_url, average_rating, review_count, start_date",
       ),
     supabase.from("vendor_admin_notes").select("vendor_user_id"),
     supabase.from("vendor_review_disputes").select("vendor_user_id, dispute_status"),
@@ -82,21 +64,11 @@ export async function GET() {
     disputeCounts.set(vendorUserId, (disputeCounts.get(vendorUserId) ?? 0) + 1);
   }
 
-  const vendors = [...(profilesResult.data ?? [])]
-    .map((vendor) => ({
-      ...vendor,
-      note_count: noteCounts.get(vendor.user_id) ?? 0,
-      dispute_count: disputeCounts.get(vendor.user_id) ?? 0,
-    }))
-    .sort((left, right) => {
-      const statusDifference = statusRank(left.account_status) - statusRank(right.account_status);
-
-      if (statusDifference !== 0) {
-        return statusDifference;
-      }
-
-      return left.company_name.localeCompare(right.company_name);
-    });
+  const vendors = (profilesResult.data ?? []).map((vendor) => ({
+    ...vendor,
+    note_count: noteCounts.get(vendor.user_id) ?? 0,
+    dispute_count: disputeCounts.get(vendor.user_id) ?? 0,
+  }));
 
   return NextResponse.json({
     vendors,

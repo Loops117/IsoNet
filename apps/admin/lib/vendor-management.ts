@@ -10,8 +10,18 @@ export type AdminVendorAccountStatus =
 export type AdminVendorSummary = {
   user_id: string;
   owner_name: string;
+  first_name: string | null;
+  last_name: string | null;
   company_name: string;
   email: string;
+  phone_number: string | null;
+  address: string | null;
+  street_address: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  state_province: string | null;
+  postal_code: string | null;
+  country: string | null;
   account_status: AdminVendorAccountStatus;
   company_logo_url: string | null;
   average_rating: number;
@@ -19,6 +29,16 @@ export type AdminVendorSummary = {
   start_date: string;
   note_count: number;
   dispute_count: number;
+};
+
+export type AdminVendorActivity = {
+  id: string;
+  vendor_user_id: string;
+  activity_type: string;
+  actor_email: string;
+  summary: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
 };
 
 export type AdminVendorSocialLink = {
@@ -111,6 +131,7 @@ export type AdminVendorDetail = {
   reviews: AdminVendorReview[];
   disputes: AdminVendorDispute[];
   statementAgreements: AdminVendorStatementAgreement[];
+  adminActivity: AdminVendorActivity[];
 };
 
 export const adminVendorStatusOptions: AdminVendorAccountStatus[] = [
@@ -120,6 +141,33 @@ export const adminVendorStatusOptions: AdminVendorAccountStatus[] = [
   "needs_updates",
   "suspended",
 ];
+
+type AdminVendorAddressFields = {
+  street_address: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  state_province: string | null;
+  postal_code: string | null;
+  country: string | null;
+  address: string | null;
+};
+
+export function formatAdminStructuredAddress(profile: AdminVendorAddressFields) {
+  return (
+    [
+      profile.street_address,
+      profile.address_line_2,
+      profile.city,
+      profile.state_province,
+      profile.postal_code,
+      profile.country,
+    ]
+      .filter(Boolean)
+      .join(", ") ||
+    profile.address ||
+    "Not set"
+  );
+}
 
 export function formatAdminVendorStatus(value: string | null | undefined) {
   if (!value) {
@@ -143,4 +191,26 @@ export function formatAdminDate(value: string | null | undefined) {
     day: "numeric",
     year: "numeric",
   }).format(new Date(value));
+}
+
+export function formatAdminDateTime(value: string | null | undefined) {
+  if (!value) {
+    return "Not set";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+export function formatAdminActivityType(value: string) {
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
 }
