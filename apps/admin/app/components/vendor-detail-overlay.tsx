@@ -7,6 +7,7 @@ import {
   formatAdminActivityType,
   formatAdminDate,
   formatAdminDateTime,
+  formatAdminSalesProfileList,
   formatAdminStructuredAddress,
   formatAdminVendorStatus,
   type AdminVendorDetail,
@@ -204,6 +205,22 @@ export function VendorDetailOverlay({
                     {
                       label: "Review count",
                       value: String(profile.review_count),
+                    },
+                  ]}
+                />
+              </section>
+
+              <section className="vendor-overlay__section">
+                <h3 className="vendor-overlay__section-title">Sales profile</h3>
+                <DataList
+                  items={[
+                    {
+                      label: "Sales locations",
+                      value: formatAdminSalesProfileList(profile.sales_locations),
+                    },
+                    {
+                      label: "Sales items",
+                      value: formatAdminSalesProfileList(profile.sales_items),
                     },
                   ]}
                 />

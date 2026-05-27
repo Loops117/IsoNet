@@ -124,6 +124,8 @@ export type AdminVendorDetail = {
     average_rating: number;
     review_count: number;
     start_date: string;
+    sales_locations: string[];
+    sales_items: string[];
   } | null;
   socialLinks: AdminVendorSocialLink[];
   subscription: AdminVendorSubscription | null;
@@ -205,6 +207,24 @@ export function formatAdminDateTime(value: string | null | undefined) {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+const salesProfileLabels: Record<string, string> = {
+  local_expos_shows: "Local Expos/Shows",
+  online_sales: "Online Sales",
+  live_animals: "Live Animals",
+  hard_goods: "Hard Goods",
+  foods_consumables: "Foods and Consumables",
+  botanicals: "Botanicals",
+  misc_goods: "Misc Goods",
+};
+
+export function formatAdminSalesProfileList(keys: string[] | null | undefined) {
+  if (!keys?.length) {
+    return "Not set";
+  }
+
+  return keys.map((key) => salesProfileLabels[key] ?? key).join(", ");
 }
 
 export function formatAdminActivityType(value: string) {

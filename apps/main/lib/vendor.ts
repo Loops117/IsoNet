@@ -129,6 +129,8 @@ type VendorMetadata = {
   badgeUrl: string | null;
   socialLinks: VendorSocialLinkInput[];
   subscriptionTier: string;
+  salesLocations: string[];
+  salesItems: string[];
 };
 
 function normalizeUrl(value: string) {
@@ -330,7 +332,19 @@ function extractVendorMetadata(user: User): VendorMetadata {
     socialLinks,
     subscriptionTier:
       metadataString(metadata, "subscription_tier", "Application") ?? "Application",
+    salesLocations: parseMetadataStringArray(metadata, "sales_locations"),
+    salesItems: parseMetadataStringArray(metadata, "sales_items"),
   };
+}
+
+function parseMetadataStringArray(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === "string");
 }
 
 export async function ensureVendorProfileProvisioned(
@@ -358,6 +372,8 @@ export async function ensureVendorProfileProvisioned(
       email: metadata.companyEmail ?? user.email ?? "",
       account_status: "not_approved",
       badge_url: metadata.badgeUrl,
+      sales_locations: metadata.salesLocations,
+      sales_items: metadata.salesItems,
       start_date: new Date().toISOString(),
     },
     { onConflict: "user_id" },

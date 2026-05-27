@@ -18,13 +18,23 @@ import {
   vendorStatementAgreements,
 } from "../../lib/vendor-statement-agreements";
 import {
+  VENDOR_SIGNUP_SALES_PROFILE_STEP,
+  buildSalesProfileMetadata,
+  createEmptySalesProfileState,
+  formatSalesProfileLabels,
+  getSelectedSalesKeys,
+  hasValidSalesProfile,
+  vendorSalesItemOptions,
+  vendorSalesLocationOptions,
+} from "../../lib/vendor-sales-profile";
+import {
   createVendorSocialLinksFromFields,
   ensureVendorProfileProvisioned,
   recordVendorStatementAgreements,
 } from "../../lib/vendor";
 
 type AccessMode = "signup" | "login";
-type SignupStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+type SignupStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 type VendorAccessPanelProps = {
   initialMode?: AccessMode;
@@ -106,12 +116,21 @@ function getSignupStepMeta(step: SignupStep): SignupStepMeta {
     };
   }
 
+  if (step === VENDOR_SIGNUP_SALES_PROFILE_STEP) {
+    return {
+      eyebrow: "Step 3",
+      title: "Sales profile",
+      description:
+        "Tell us where you sell and what you offer so we can understand your business during review.",
+    };
+  }
+
   if (step === VENDOR_SIGNUP_REVIEW_STEP) {
     return {
       eyebrow: `Step ${step}`,
       title: "Review your application",
       description:
-        "Confirm your contact details, company information, and statement agreements before submitting for approval.",
+        "Confirm your contact details, company information, sales profile, and statement agreements before submitting for approval.",
     };
   }
 
@@ -270,6 +289,7 @@ export function VendorAccessPanel({
   const [signupStep, setSignupStep] = useState<SignupStep>(1);
   const [form, setForm] = useState(defaultForm);
   const [statementAgreements, setStatementAgreements] = useState(createEmptyAgreementState);
+  const [salesProfile, setSalesProfile] = useState(createEmptySalesProfileState);
   const [activeEmail, setActiveEmail] = useState<string | null>(null);
   const [authPending, setAuthPending] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -408,6 +428,10 @@ export function VendorAccessPanel({
       return "Add the company name before continuing.";
     }
 
+    if (step === VENDOR_SIGNUP_SALES_PROFILE_STEP && !hasValidSalesProfile(salesProfile)) {
+      return "Select at least one sales location and one sales item before continuing.";
+    }
+
     if (
       step >= VENDOR_SIGNUP_FIRST_AGREEMENT_STEP &&
       step <= VENDOR_SIGNUP_LAST_AGREEMENT_STEP
@@ -528,6 +552,7 @@ export function VendorAccessPanel({
             company_email: form.email.trim(),
             social_links: socialLinks,
             subscription_tier: "Application",
+            ...buildSalesProfileMetadata(salesProfile),
             statement_agreements: buildStatementAgreementRecords(statementAgreements),
           },
         },
@@ -669,6 +694,23 @@ export function VendorAccessPanel({
             socialSummary.length > 0
               ? socialSummary.map((item) => `${item.label}: ${item.value}`).join("\n")
               : "Not provided",
+        },
+      ],
+    },
+    {
+      title: "Sales profile",
+      items: [
+        {
+          label: "Sales locations",
+          value:
+            formatSalesProfileLabels(getSelectedSalesKeys(salesProfile, "location")) ||
+            "Not provided",
+        },
+        {
+          label: "Sales items",
+          value:
+            formatSalesProfileLabels(getSelectedSalesKeys(salesProfile, "item")) ||
+            "Not provided",
         },
       ],
     },
@@ -1155,6 +1197,68 @@ export function VendorAccessPanel({
                           placeholder={"One per line. Example:\nYouTube | https://youtube.com/@yourbrand\nTikTok | https://tiktok.com/@yourbrand"}
                         />
                       </label>
+                    </div>
+                  ) : null}
+
+                  {signupStep === VENDOR_SIGNUP_SALES_PROFILE_STEP ? (
+                    <div className="space-y-6">
+                      <div className="space-y-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          Sales locations
+                        </p>
+                        <div className="space-y-3">
+                          {vendorSalesLocationOptions.map((option) => (
+                            <label
+                              key={option.key}
+                              className="flex cursor-pointer items-center gap-3 rounded-sm border border-white/10 bg-white/4 px-4 py-3 transition-colors hover:border-white/16"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={salesProfile[option.key]}
+                                onChange={(event) =>
+                                  setSalesProfile((current) => ({
+                                    ...current,
+                                    [option.key]: event.target.checked,
+                                  }))
+                                }
+                                className="h-4 w-4 shrink-0 rounded-sm border-white/20 bg-slate-950/80 accent-[var(--accent)]"
+                              />
+                              <span className="text-sm font-medium text-slate-100">
+                                {option.label}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                          Sales items
+                        </p>
+                        <div className="space-y-3">
+                          {vendorSalesItemOptions.map((option) => (
+                            <label
+                              key={option.key}
+                              className="flex cursor-pointer items-center gap-3 rounded-sm border border-white/10 bg-white/4 px-4 py-3 transition-colors hover:border-white/16"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={salesProfile[option.key]}
+                                onChange={(event) =>
+                                  setSalesProfile((current) => ({
+                                    ...current,
+                                    [option.key]: event.target.checked,
+                                  }))
+                                }
+                                className="h-4 w-4 shrink-0 rounded-sm border-white/20 bg-slate-950/80 accent-[var(--accent)]"
+                              />
+                              <span className="text-sm font-medium text-slate-100">
+                                {option.label}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   ) : null}
 

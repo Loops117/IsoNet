@@ -100,8 +100,8 @@ export const vendorStatementAgreements: VendorStatementAgreement[] = [
 
 export const vendorAgreementPages: VendorAgreementPage[] = [
   {
-    step: 3,
-    eyebrow: "Step 3 · Standards",
+    step: 4,
+    eyebrow: "Step 4 · Standards",
     title: "Purpose & legal trade",
     description:
       "Read each item below and confirm your agreement before continuing. You can review the full public statement anytime.",
@@ -110,8 +110,8 @@ export const vendorAgreementPages: VendorAgreementPage[] = [
     ),
   },
   {
-    step: 4,
-    eyebrow: "Step 4 · Standards",
+    step: 5,
+    eyebrow: "Step 5 · Standards",
     title: "Labeling & sanitary products",
     description:
       "These expectations protect buyers from mislabeled stock and contaminated enclosure materials.",
@@ -120,8 +120,8 @@ export const vendorAgreementPages: VendorAgreementPage[] = [
     ),
   },
   {
-    step: 5,
-    eyebrow: "Step 5 · Standards",
+    step: 6,
+    eyebrow: "Step 6 · Standards",
     title: "Service & fraud",
     description:
       "Professional communication and zero tolerance for scams are required for every IsoNet vendor.",
@@ -130,8 +130,8 @@ export const vendorAgreementPages: VendorAgreementPage[] = [
     ),
   },
   {
-    step: 6,
-    eyebrow: "Step 6 · Standards",
+    step: 7,
+    eyebrow: "Step 7 · Standards",
     title: "Genetics & accountability",
     description:
       "Confirm honest genetics practices and that you accept IsoNet oversight if standards are not met.",
@@ -141,11 +141,11 @@ export const vendorAgreementPages: VendorAgreementPage[] = [
   },
 ];
 
-export const VENDOR_SIGNUP_STEP_COUNT = 8;
-export const VENDOR_SIGNUP_REVIEW_STEP = 7;
-export const VENDOR_SIGNUP_CONFIRM_STEP = 8;
-export const VENDOR_SIGNUP_FIRST_AGREEMENT_STEP = 3;
-export const VENDOR_SIGNUP_LAST_AGREEMENT_STEP = 6;
+export const VENDOR_SIGNUP_STEP_COUNT = 9;
+export const VENDOR_SIGNUP_REVIEW_STEP = 8;
+export const VENDOR_SIGNUP_CONFIRM_STEP = 9;
+export const VENDOR_SIGNUP_FIRST_AGREEMENT_STEP = 4;
+export const VENDOR_SIGNUP_LAST_AGREEMENT_STEP = 7;
 
 export function createEmptyAgreementState() {
   return Object.fromEntries(
