@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { siteNavLinks } from "../../lib/site-nav";
+import { SiteNavAnchor } from "./site-nav-link";
 
 type SiteHeaderProps = {
   floating?: boolean;
@@ -27,9 +28,11 @@ export function SiteHeader({ floating = false, visible = true }: SiteHeaderProps
 
         <nav className="site-header__nav" aria-label="Site navigation">
           {siteNavLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="site-header__link">
-              {link.label}
-            </Link>
+            <SiteNavAnchor
+              key={link.href}
+              link={link}
+              className="site-header__link"
+            />
           ))}
         </nav>
       </div>

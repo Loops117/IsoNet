@@ -1,7 +1,8 @@
 import Link from "next/link";
 
-import { siteNavLinks } from "../lib/site-nav";
+import { facebookGroupUrl, siteNavLinks } from "../lib/site-nav";
 import { MissionPanels } from "./components/mission-panels";
+import { SiteNavAnchor } from "./components/site-nav-link";
 import { TimelineProgress } from "./components/timeline-progress";
 
 const timelineSteps = [
@@ -142,9 +143,11 @@ export default function Home() {
                 className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-300"
               >
                 {siteNavLinks.map((link) => (
-                  <Link key={link.href} className="isonet-link" href={link.href}>
-                    {link.label}
-                  </Link>
+                  <SiteNavAnchor
+                    key={link.href}
+                    link={link}
+                    className="isonet-link"
+                  />
                 ))}
               </nav>
             </div>
@@ -440,6 +443,14 @@ export default function Home() {
               <Link href="/vendor/signup" className="isonet-button-secondary">
                 Apply as a vendor
               </Link>
+              <a
+                href={facebookGroupUrl}
+                className="isonet-button-secondary"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Join our Facebook group
+              </a>
             </div>
           </article>
         </section>
