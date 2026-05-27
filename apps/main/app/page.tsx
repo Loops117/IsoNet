@@ -14,8 +14,9 @@ const timelineSteps = [
   },
   {
     label: "Vendor Portal",
-    done: true,
-    status: "Done",
+    done: false,
+    inProgress: true,
+    status: "In-Progress",
     description:
       "Vendor signup, dashboard, and approval workflow are live for members building their profiles.",
   },
@@ -248,14 +249,18 @@ export default function Home() {
 
         <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
           <article className="isonet-panel grid gap-8 p-6 sm:p-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-            <div className="flex justify-center lg:justify-start">
+            <div className="flex flex-col items-center gap-3">
               <div className="badge-placeholder">
                 <div className="badge-placeholder__inner">
-                  <span className="badge-placeholder__eyebrow">IsoNet</span>
-                  <span className="badge-placeholder__title">Badge</span>
-                  <span className="badge-placeholder__seal" />
+                  <div className="badge-placeholder__label-group">
+                    <span className="badge-placeholder__label">Badge</span>
+                    <span className="badge-placeholder__sublabel">Placeholder</span>
+                  </div>
                 </div>
               </div>
+              <p className="badge-placeholder__caption">
+                We&apos;re still working on badge design
+              </p>
             </div>
 
             <div>

@@ -432,31 +432,36 @@ a {
   text-align: center;
 }
 
-.badge-placeholder__eyebrow {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.35em;
-  text-transform: uppercase;
-  color: rgba(159, 178, 200, 0.92);
+.badge-placeholder__label-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  text-align: center;
 }
 
-.badge-placeholder__title {
-  font-size: clamp(1.65rem, 3.2vw, 2.35rem);
+.badge-placeholder__label {
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
   font-weight: 700;
+  line-height: 1.1;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #f8fafc;
 }
 
-.badge-placeholder__seal {
-  margin-top: 0.4rem;
-  height: 3rem;
-  width: 3rem;
-  border-radius: 999px;
-  border: 1px solid rgba(194, 208, 223, 0.3);
-  background:
-    radial-gradient(circle, rgba(194, 208, 223, 0.75) 0%, rgba(159, 178, 200, 0.16) 45%, transparent 70%);
-  box-shadow:
-    0 0 0 7px rgba(159, 178, 200, 0.08),
-    0 0 30px rgba(159, 178, 200, 0.18);
+.badge-placeholder__sublabel {
+  font-size: clamp(0.7rem, 1.6vw, 0.85rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(159, 178, 200, 0.92);
+}
+
+.badge-placeholder__caption {
+  max-width: 16rem;
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: rgba(203, 213, 225, 0.82);
 }

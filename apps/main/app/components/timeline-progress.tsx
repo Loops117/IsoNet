@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 export type TimelineStep = {
   label: string;
   done: boolean;
+  inProgress?: boolean;
   status?: string;
   description: string;
 };
@@ -34,6 +35,9 @@ export function TimelineProgress({ steps }: TimelineProgressProps) {
           {steps.map((step, index) => {
             const nextStep = steps[index + 1];
             const connectorComplete = Boolean(step.done && nextStep?.done);
+            const connectorInProgress = Boolean(
+              step.done && nextStep?.inProgress && !nextStep.done,
+            );
 
             return (
               <div key={step.label} className="flex min-w-0 flex-1 items-start">
@@ -61,7 +65,9 @@ export function TimelineProgress({ steps }: TimelineProgressProps) {
                         "focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35",
                         step.done
                           ? "border-[var(--accent)] bg-[var(--accent)] text-slate-950"
-                          : "border-white/14 bg-white/4 text-slate-200",
+                          : step.inProgress
+                            ? "border-amber-300/70 bg-amber-400/90 text-slate-950 shadow-[0_0_0_4px_rgba(251,191,36,0.12)]"
+                            : "border-white/14 bg-white/4 text-slate-200",
                       ].join(" ")}
                     >
                       {index + 1}
@@ -73,7 +79,14 @@ export function TimelineProgress({ steps }: TimelineProgressProps) {
 
                     <div className="mt-2 min-h-[1.25rem]">
                       {step.status ? (
-                        <span className="rounded-sm border border-[var(--accent)]/40 bg-[var(--accent)]/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-100">
+                        <span
+                          className={[
+                            "rounded-sm border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]",
+                            step.inProgress
+                              ? "border-amber-300/45 bg-amber-400/14 text-amber-100"
+                              : "border-[var(--accent)]/40 bg-[var(--accent)]/12 text-slate-100",
+                          ].join(" ")}
+                        >
                           {step.status}
                         </span>
                       ) : (
@@ -93,7 +106,9 @@ export function TimelineProgress({ steps }: TimelineProgressProps) {
                           "h-px transition-all duration-300",
                           connectorComplete
                             ? "w-full bg-[var(--accent)]"
-                            : "w-0 bg-transparent",
+                            : connectorInProgress
+                              ? "w-1/2 bg-amber-400/80"
+                              : "w-0 bg-transparent",
                         ].join(" ")}
                       />
                     </div>
