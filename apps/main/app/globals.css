@@ -683,3 +683,98 @@ a {
   height: 0;
   pointer-events: none;
 }
+
+.rich-text-editor {
+  overflow: hidden;
+  border-radius: 0.125rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(2, 6, 23, 0.55);
+}
+
+.rich-text-editor__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.9);
+  padding: 0.55rem 0.65rem;
+}
+
+.rich-text-editor__toolbar--loading {
+  min-height: 2.75rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.rich-text-editor__toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.rich-text-editor__toolbar-divider {
+  width: 1px;
+  height: 1.5rem;
+  margin: 0 0.15rem;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.rich-text-editor__toolbar-btn {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.125rem;
+  background: rgba(2, 6, 23, 0.75);
+  padding: 0.3rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #e2e8f0;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.rich-text-editor__toolbar-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.rich-text-editor__toolbar-btn--active {
+  border-color: rgba(var(--accent-rgb, 56, 189, 248), 0.45);
+  background: rgba(var(--accent-rgb, 56, 189, 248), 0.15);
+  color: #fff;
+}
+
+.rich-text-editor__font-select {
+  display: inline-flex;
+}
+
+.rich-text-editor__font-select-input {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.125rem;
+  background: rgba(2, 6, 23, 0.75);
+  padding: 0.35rem 0.55rem;
+  font-size: 0.8rem;
+  color: #f8fafc;
+}
+
+.rich-text-editor__content {
+  min-height: 14rem;
+}
+
+.rich-text-editor__content--loading {
+  min-height: 14rem;
+  animation: pulse 1.5s ease-in-out infinite;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.rich-text-editor__content .tiptap-editor {
+  min-height: 14rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  color: #f8fafc;
+  outline: none;
+}
+
+.rich-text-editor__content .ProseMirror-focused {
+  outline: none;
+}

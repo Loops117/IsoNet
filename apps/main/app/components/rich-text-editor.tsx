@@ -17,24 +17,34 @@ type RichTextEditorProps = {
 
 type ToolbarButtonProps = {
   label: string;
+  title: string;
   active?: boolean;
   onClick: () => void;
 };
 
-function ToolbarButton({ label, active = false, onClick }: ToolbarButtonProps) {
+function ToolbarButton({ label, title, active = false, onClick }: ToolbarButtonProps) {
   return (
     <button
       type="button"
+      title={title}
+      aria-label={title}
       className={[
-        "rounded-sm border px-2 py-1 text-xs font-semibold uppercase tracking-[0.12em] transition-colors",
-        active
-          ? "border-[var(--accent)]/45 bg-[var(--accent)]/15 text-white"
-          : "border-white/12 bg-slate-950/70 text-slate-200 hover:bg-white/8",
+        "rich-text-editor__toolbar-btn",
+        active ? "rich-text-editor__toolbar-btn--active" : "",
       ].join(" ")}
       onClick={onClick}
     >
       {label}
     </button>
+  );
+}
+
+function EditorSkeleton() {
+  return (
+    <div className="rich-text-editor" aria-hidden="true">
+      <div className="rich-text-editor__toolbar rich-text-editor__toolbar--loading" />
+      <div className="rich-text-editor__content rich-text-editor__content--loading" />
+    </div>
   );
 }
 
@@ -44,6 +54,7 @@ export function RichTextEditor({
   placeholder = "Tell customers about your business...",
 }: RichTextEditorProps) {
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
@@ -56,14 +67,13 @@ export function RichTextEditor({
       }),
       Placeholder.configure({ placeholder }),
     ],
-    content: value,
+    content: value || "<p></p>",
     onUpdate: ({ editor: nextEditor }) => {
       onChange(nextEditor.getHTML());
     },
     editorProps: {
       attributes: {
-        class:
-          "tiptap-editor min-h-56 px-4 py-3 text-sm leading-7 text-slate-50 outline-none",
+        class: "tiptap-editor",
       },
     },
   });
@@ -73,89 +83,131 @@ export function RichTextEditor({
       return;
     }
     const current = editor.getHTML();
-    if (value !== current) {
-      editor.commands.setContent(value || "<p></p>", { emitUpdate: false });
+    const next = value || "<p></p>";
+    if (value !== current && next !== current) {
+      editor.commands.setContent(next, { emitUpdate: false });
     }
   }, [editor, value]);
 
   if (!editor) {
-    return null;
+    return <EditorSkeleton />;
   }
 
   return (
-    <div className="rounded-sm border border-white/12 bg-slate-950/40">
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/12 p-2">
-        <ToolbarButton
-          label="Bold"
-          active={editor.isActive("bold")}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-        />
-        <ToolbarButton
-          label="Italic"
-          active={editor.isActive("italic")}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-        />
-        <ToolbarButton
-          label="Underline"
-          active={editor.isActive("underline")}
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-        />
-        <ToolbarButton
-          label="H1"
-          active={editor.isActive("heading", { level: 1 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-        />
-        <ToolbarButton
-          label="H2"
-          active={editor.isActive("heading", { level: 2 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-        />
-        <ToolbarButton
-          label="List"
-          active={editor.isActive("bulletList")}
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-        />
-        <ToolbarButton
-          label="Quote"
-          active={editor.isActive("blockquote")}
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        />
-        <ToolbarButton
-          label="Left"
-          active={editor.isActive({ textAlign: "left" })}
-          onClick={() => editor.chain().focus().setTextAlign("left").run()}
-        />
-        <ToolbarButton
-          label="Center"
-          active={editor.isActive({ textAlign: "center" })}
-          onClick={() => editor.chain().focus().setTextAlign("center").run()}
-        />
-        <ToolbarButton
-          label="Right"
-          active={editor.isActive({ textAlign: "right" })}
-          onClick={() => editor.chain().focus().setTextAlign("right").run()}
-        />
-        <select
-          className="rounded-sm border border-white/12 bg-slate-950/70 px-2 py-1 text-sm text-slate-50"
-          onChange={(event) => editor.chain().focus().setFontFamily(event.target.value).run()}
-          defaultValue="Inter"
-        >
-          <option value="Inter">Inter</option>
-          <option value="Arial">Arial</option>
-          <option value="Georgia">Georgia</option>
-          <option value="'Trebuchet MS'">Trebuchet</option>
-          <option value="Verdana">Verdana</option>
-        </select>
-        <ToolbarButton
-          label="Undo"
-          onClick={() => editor.chain().focus().undo().run()}
-        />
-        <ToolbarButton
-          label="Redo"
-          onClick={() => editor.chain().focus().redo().run()}
-        />
+    <div className="rich-text-editor">
+      <div className="rich-text-editor__toolbar" role="toolbar" aria-label="Formatting">
+        <div className="rich-text-editor__toolbar-group">
+          <ToolbarButton
+            label="B"
+            title="Bold"
+            active={editor.isActive("bold")}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+          />
+          <ToolbarButton
+            label="I"
+            title="Italic"
+            active={editor.isActive("italic")}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+          />
+          <ToolbarButton
+            label="U"
+            title="Underline"
+            active={editor.isActive("underline")}
+            onClick={() => editor.chain().focus().toggleUnderline().run()}
+          />
+        </div>
+
+        <div className="rich-text-editor__toolbar-divider" aria-hidden="true" />
+
+        <div className="rich-text-editor__toolbar-group">
+          <ToolbarButton
+            label="H1"
+            title="Heading 1"
+            active={editor.isActive("heading", { level: 1 })}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          />
+          <ToolbarButton
+            label="H2"
+            title="Heading 2"
+            active={editor.isActive("heading", { level: 2 })}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          />
+          <ToolbarButton
+            label="• List"
+            title="Bullet list"
+            active={editor.isActive("bulletList")}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+          />
+          <ToolbarButton
+            label="Quote"
+            title="Blockquote"
+            active={editor.isActive("blockquote")}
+            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          />
+        </div>
+
+        <div className="rich-text-editor__toolbar-divider" aria-hidden="true" />
+
+        <div className="rich-text-editor__toolbar-group">
+          <ToolbarButton
+            label="Left"
+            title="Align left"
+            active={editor.isActive({ textAlign: "left" })}
+            onClick={() => editor.chain().focus().setTextAlign("left").run()}
+          />
+          <ToolbarButton
+            label="Center"
+            title="Align center"
+            active={editor.isActive({ textAlign: "center" })}
+            onClick={() => editor.chain().focus().setTextAlign("center").run()}
+          />
+          <ToolbarButton
+            label="Right"
+            title="Align right"
+            active={editor.isActive({ textAlign: "right" })}
+            onClick={() => editor.chain().focus().setTextAlign("right").run()}
+          />
+        </div>
+
+        <div className="rich-text-editor__toolbar-divider" aria-hidden="true" />
+
+        <div className="rich-text-editor__toolbar-group">
+          <label className="rich-text-editor__font-select">
+            <span className="sr-only">Font family</span>
+            <select
+              className="rich-text-editor__font-select-input"
+              value={
+                (editor.getAttributes("textStyle").fontFamily as string | undefined) || "Inter"
+              }
+              onChange={(event) =>
+                editor.chain().focus().setFontFamily(event.target.value).run()
+              }
+            >
+              <option value="Inter">Inter</option>
+              <option value="Arial">Arial</option>
+              <option value="Georgia">Georgia</option>
+              <option value="'Trebuchet MS'">Trebuchet</option>
+              <option value="Verdana">Verdana</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="rich-text-editor__toolbar-divider" aria-hidden="true" />
+
+        <div className="rich-text-editor__toolbar-group">
+          <ToolbarButton
+            label="Undo"
+            title="Undo"
+            onClick={() => editor.chain().focus().undo().run()}
+          />
+          <ToolbarButton
+            label="Redo"
+            title="Redo"
+            onClick={() => editor.chain().focus().redo().run()}
+          />
+        </div>
       </div>
-      <EditorContent editor={editor} />
+      <EditorContent editor={editor} className="rich-text-editor__content" />
     </div>
   );
 }

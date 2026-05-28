@@ -1235,7 +1235,7 @@ export function VendorPortal() {
                 </p>
               </header>
 
-              <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+              <section className="space-y-4">
                 <VendorProfileCompletionCard
                   profile={profile}
                   socialLinkCount={socialLinks.length}

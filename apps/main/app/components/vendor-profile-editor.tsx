@@ -9,7 +9,23 @@ import {
   type VendorSocialLink,
   type VendorSocialLinkFields,
 } from "../../lib/vendor";
-import { RichTextEditor } from "./rich-text-editor";
+import dynamic from "next/dynamic";
+
+const RichTextEditor = dynamic(
+  () => import("./rich-text-editor").then((module) => module.RichTextEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="rich-text-editor"
+        aria-hidden="true"
+      >
+        <div className="rich-text-editor__toolbar rich-text-editor__toolbar--loading" />
+        <div className="rich-text-editor__content rich-text-editor__content--loading" />
+      </div>
+    ),
+  },
+);
 import {
   buildSalesProfileMetadata,
   hasValidSalesProfile,
