@@ -1,16 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-import { getAdminSessionCookieOptions } from "../../../../lib/admin-session";
+import { hasAdminAuthConfigured } from "../../../../lib/admin-session";
+import { createSupabaseRouteHandlerClient } from "../../../../lib/supabase/route-handler";
 
-export async function POST() {
-  const response = NextResponse.json({ ok: true });
-  const sessionCookie = getAdminSessionCookieOptions();
+export async function POST(request: NextRequest) {
+  if (!hasAdminAuthConfigured()) {
+    return NextResponse.json({ ok: true });
+  }
 
-  response.cookies.set({
-    ...sessionCookie,
-    value: "",
-    maxAge: 0,
-  });
+  const routeClient = createSupabaseRouteHandlerClient(request);
 
-  return response;
+  if (!routeClient) {
+    return NextResponse.json({ ok: true });
+  }
+
+  const { supabase, applyAuthCookies } = routeClient;
+  await supabase.auth.signOut();
+
+  return applyAuthCookies(NextResponse.json({ ok: true }));
 }

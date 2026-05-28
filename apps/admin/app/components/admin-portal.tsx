@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -39,7 +39,7 @@ const dashboardActivity = [
   },
   {
     title: "Admin portal authentication enabled",
-    detail: "Bootstrap admin sign-in is active with environment-based access control.",
+    detail: "Administrators sign in with Supabase Auth accounts linked in admin_users.",
     timestamp: "Today",
   },
   {
@@ -466,8 +466,8 @@ export function AdminPortal({
 
               {!adminAuthConfigured ? (
                 <div className="mt-6 rounded-sm border border-amber-300/30 bg-amber-200/10 px-4 py-4 text-sm leading-7 text-amber-100">
-                  This app is missing `ADMIN_EMAIL` and `ADMIN_PASSWORD`, so the
-                  admin login cannot start yet.
+                  This app is missing `NEXT_PUBLIC_SUPABASE_URL` and
+                  `NEXT_PUBLIC_SUPABASE_ANON_KEY`, so admin sign-in cannot start yet.
                 </div>
               ) : null}
 
@@ -526,9 +526,8 @@ export function AdminPortal({
               </form>
 
               <p className="mt-5 text-xs leading-6 text-slate-400">
-                This bootstrap login uses your configured admin environment
-                credentials. Supabase-backed admin provisioning can be layered in
-                after the database migration is applied.
+                Use the email and password for your administrator account. Access
+                is granted only to users listed in the Supabase admin_users table.
               </p>
             </div>
           </div>

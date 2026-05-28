@@ -13,6 +13,8 @@ import {
   type AdminVendorDetail,
 } from "../../lib/vendor-management";
 
+export type VendorAuthEmailType = "recovery" | "signup";
+
 type VendorDetailOverlayProps = {
   open: boolean;
   loading: boolean;
@@ -21,6 +23,8 @@ type VendorDetailOverlayProps = {
   statusPending: boolean;
   noteDraft: string;
   notePending: boolean;
+  emailType: VendorAuthEmailType;
+  emailSendPending: boolean;
   message: string | null;
   error: string | null;
   onClose: () => void;
@@ -28,6 +32,8 @@ type VendorDetailOverlayProps = {
   onStatusSave: () => void;
   onNoteDraftChange: (value: string) => void;
   onNoteSubmit: () => void;
+  onEmailTypeChange: (value: VendorAuthEmailType) => void;
+  onSendEmail: () => void;
 };
 
 function DataList({
@@ -63,6 +69,8 @@ export function VendorDetailOverlay({
   statusPending,
   noteDraft,
   notePending,
+  emailType,
+  emailSendPending,
   message,
   error,
   onClose,
@@ -70,6 +78,8 @@ export function VendorDetailOverlay({
   onStatusSave,
   onNoteDraftChange,
   onNoteSubmit,
+  onEmailTypeChange,
+  onSendEmail,
 }: VendorDetailOverlayProps) {
   useEffect(() => {
     if (!open) {
@@ -169,6 +179,36 @@ export function VendorDetailOverlay({
                     disabled={statusPending}
                   >
                     {statusPending ? "Saving" : "Save status"}
+                  </button>
+                </div>
+              </section>
+
+              <section className="vendor-overlay__section vendor-overlay__section--temp">
+                <h3 className="vendor-overlay__section-title">Temporary: send auth email</h3>
+                <p className="vendor-overlay__temp-note">
+                  Sends a real Supabase email to {profile.email} to test SMTP or
+                  help a vendor who did not receive confirmation. Remove this section when SMTP is
+                  stable.
+                </p>
+                <div className="vendor-overlay__status-row">
+                  <select
+                    value={emailType}
+                    onChange={(event) =>
+                      onEmailTypeChange(event.target.value as VendorAuthEmailType)
+                    }
+                    className="admin-input min-w-[14rem]"
+                    disabled={emailSendPending}
+                  >
+                    <option value="recovery">Password reset email</option>
+                    <option value="signup">Signup confirmation email</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="admin-ghost-button"
+                    onClick={onSendEmail}
+                    disabled={emailSendPending}
+                  >
+                    {emailSendPending ? "Sending" : "Send email to vendor"}
                   </button>
                 </div>
               </section>

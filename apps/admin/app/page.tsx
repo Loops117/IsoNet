@@ -1,8 +1,5 @@
 import { AdminPortal } from "./components/admin-portal";
-import {
-  getAdminSession,
-  hasAdminCredentialsConfigured,
-} from "../lib/admin-session";
+import { getAdminSession, hasAdminAuthConfigured } from "../lib/admin-session";
 
 export default async function Home() {
   const adminSession = await getAdminSession();
@@ -11,7 +8,7 @@ export default async function Home() {
     <AdminPortal
       isAuthenticated={Boolean(adminSession)}
       adminEmail={adminSession?.email ?? null}
-      adminAuthConfigured={hasAdminCredentialsConfigured()}
+      adminAuthConfigured={hasAdminAuthConfigured()}
     />
   );
 }

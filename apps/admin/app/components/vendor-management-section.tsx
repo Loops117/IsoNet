@@ -2,7 +2,10 @@
 
 import { startTransition, useCallback, useEffect, useState } from "react";
 
-import { VendorDetailOverlay } from "./vendor-detail-overlay";
+import {
+  VendorDetailOverlay,
+  type VendorAuthEmailType,
+} from "./vendor-detail-overlay";
 import { VendorManagementTable } from "./vendor-management-table";
 import type { AdminVendorDetail, AdminVendorSummary } from "../../lib/vendor-management";
 
@@ -38,6 +41,8 @@ export function VendorManagementSection() {
   const [vendorStatusMessage, setVendorStatusMessage] = useState<string | null>(null);
   const [vendorNoteDraft, setVendorNoteDraft] = useState("");
   const [vendorNotePending, setVendorNotePending] = useState(false);
+  const [vendorEmailType, setVendorEmailType] = useState<VendorAuthEmailType>("recovery");
+  const [vendorEmailSendPending, setVendorEmailSendPending] = useState(false);
 
   const loadVendorSummaries = useCallback(async () => {
     setVendorListLoading(true);
@@ -116,6 +121,39 @@ export function VendorManagementSection() {
     setVendorDetailError(null);
     setVendorStatusMessage(null);
     setVendorNoteDraft("");
+    setVendorEmailType("recovery");
+  }
+
+  async function handleVendorSendEmail() {
+    if (!selectedVendorId) {
+      return;
+    }
+
+    setVendorEmailSendPending(true);
+    setVendorDetailError(null);
+    setVendorStatusMessage(null);
+
+    const response = await fetch(
+      `/api/admin/vendors/${selectedVendorId}/send-email`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailType: vendorEmailType }),
+      },
+    );
+    const body = (await response.json().catch(() => null)) as
+      | { error?: string; message?: string }
+      | null;
+
+    if (!response.ok) {
+      setVendorDetailError(body?.error ?? "Unable to send that email.");
+      setVendorEmailSendPending(false);
+      return;
+    }
+
+    setVendorStatusMessage(body?.message ?? "Email send requested.");
+    setVendorEmailSendPending(false);
+    await loadVendorDetail(selectedVendorId);
   }
 
   async function handleVendorStatusSave() {
@@ -250,6 +288,8 @@ export function VendorManagementSection() {
         statusPending={vendorStatusPending}
         noteDraft={vendorNoteDraft}
         notePending={vendorNotePending}
+        emailType={vendorEmailType}
+        emailSendPending={vendorEmailSendPending}
         message={vendorStatusMessage}
         error={vendorDetailError}
         onClose={closeVendorDetail}
@@ -257,6 +297,8 @@ export function VendorManagementSection() {
         onStatusSave={handleVendorStatusSave}
         onNoteDraftChange={setVendorNoteDraft}
         onNoteSubmit={handleVendorNoteSubmit}
+        onEmailTypeChange={setVendorEmailType}
+        onSendEmail={handleVendorSendEmail}
       />
     </div>
   );

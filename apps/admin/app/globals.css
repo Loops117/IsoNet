@@ -491,6 +491,25 @@ textarea {
   align-items: center;
 }
 
+.vendor-overlay__section--temp {
+  padding: 1rem;
+  border: 1px dashed rgba(251, 191, 36, 0.45);
+  border-radius: 0.25rem;
+  background: rgba(251, 191, 36, 0.06);
+}
+
+.vendor-overlay__temp-note {
+  margin-bottom: 0.85rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: rgb(253 230 138);
+}
+
+.vendor-overlay__temp-note strong {
+  font-weight: 600;
+  color: rgb(254 243 199);
+}
+
 .vendor-data-list {
   display: flex;
   flex-direction: column;

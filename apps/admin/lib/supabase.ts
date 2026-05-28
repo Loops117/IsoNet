@@ -1,22 +1,15 @@
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+import { getSupabaseAnonKey, getSupabaseUrl, hasSupabaseAuthEnv } from "./supabase/env";
 
 export function getSupabaseBrowserClient() {
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!hasSupabaseAuthEnv()) {
     return null;
   }
 
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
-  });
+  return createBrowserClient(getSupabaseUrl(), getSupabaseAnonKey());
 }
 
 export function hasSupabaseBrowserEnv() {
-  return Boolean(supabaseUrl && supabaseAnonKey);
+  return hasSupabaseAuthEnv();
 }
