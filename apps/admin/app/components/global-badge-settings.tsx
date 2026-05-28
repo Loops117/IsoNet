@@ -40,6 +40,7 @@ export function GlobalBadgeSettings() {
   const [defaultTier, setDefaultTier] = useState(1);
   const [defaultMonth, setDefaultMonth] = useState(1);
   const [defaultYear, setDefaultYear] = useState(currentYear);
+  const [vendorBadgesLive, setVendorBadgesLive] = useState(false);
 
   const baseAssets = useMemo(() => groupedAssets(assets, "base"), [assets]);
   const tierAssets = useMemo(() => groupedAssets(assets, "tier"), [assets]);
@@ -69,6 +70,7 @@ export function GlobalBadgeSettings() {
     setDefaultTier(nextSettings?.default_homepage_tier ?? 1);
     setDefaultMonth(nextSettings?.default_homepage_month ?? 1);
     setDefaultYear(nextSettings?.default_homepage_year ?? currentYear);
+    setVendorBadgesLive(Boolean(nextSettings?.vendor_badges_live));
     setLoadPending(false);
   }
 
@@ -156,6 +158,7 @@ export function GlobalBadgeSettings() {
         defaultHomepageTier: defaultTier,
         defaultHomepageMonth: defaultMonth,
         defaultHomepageYear: defaultYear,
+        vendorBadgesLive: vendorBadgesLive,
       }),
     });
 
@@ -355,6 +358,32 @@ export function GlobalBadgeSettings() {
             </table>
           </div>
         )}
+      </section>
+
+      <section className="rounded-sm border border-white/10 bg-black/12 p-4">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-100">
+          Vendor badge rollout
+        </h3>
+        <p className="mt-2 text-sm leading-6 text-slate-300">
+          While this is off, every vendor badge URL serves the temporary IsoNet placeholder so
+          vendors can embed now. Turn it on after final badge layers are uploaded and assigned.
+        </p>
+        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-sm border border-white/10 bg-white/4 px-4 py-3">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 accent-[var(--accent)]"
+            checked={vendorBadgesLive}
+            onChange={(event) => setVendorBadgesLive(event.target.checked)}
+          />
+          <span className="text-sm leading-6 text-slate-200">
+            <span className="font-semibold text-white">Use live composed vendor badges</span>
+            <span className="mt-1 block text-slate-400">
+              {vendorBadgesLive
+                ? "Vendor badge URLs now render from uploaded layers."
+                : "Vendor badge URLs render the temporary placeholder image."}
+            </span>
+          </span>
+        </label>
       </section>
 
       <section className="rounded-sm border border-white/10 bg-black/12 p-4">

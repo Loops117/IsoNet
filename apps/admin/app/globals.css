@@ -4,6 +4,10 @@
   --background: #050b14;
   --foreground: #dbe6f4;
   --accent: #c2d0df;
+  --scrollbar-size: 10px;
+  --scrollbar-track: rgba(7, 17, 33, 0.88);
+  --scrollbar-thumb: rgba(194, 208, 223, 0.36);
+  --scrollbar-thumb-hover: rgba(194, 208, 223, 0.56);
 }
 
 @theme inline {
@@ -15,6 +19,48 @@
 
 html {
   min-height: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*,
+*::before,
+*::after {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid var(--scrollbar-track);
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 58%, transparent),
+    color-mix(in srgb, var(--accent) 28%, transparent)
+  );
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 72%, transparent),
+    color-mix(in srgb, var(--accent) 42%, transparent)
+  );
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
 }
 
 body {

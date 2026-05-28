@@ -20,6 +20,7 @@ export type BadgeGlobalSettings = {
   default_homepage_tier: number;
   default_homepage_month: number;
   default_homepage_year: number;
+  vendor_badges_live: boolean;
   created_at: string;
   updated_at: string;
 };

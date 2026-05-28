@@ -5,6 +5,10 @@
   --foreground: #d9e3f0;
   --panel: rgba(8, 20, 39, 0.92);
   --accent: #9fb2c8;
+  --scrollbar-size: 10px;
+  --scrollbar-track: rgba(8, 20, 39, 0.82);
+  --scrollbar-thumb: rgba(159, 178, 200, 0.36);
+  --scrollbar-thumb-hover: rgba(159, 178, 200, 0.56);
 }
 
 @theme inline {
@@ -41,6 +45,48 @@ body::before {
 
 html {
   scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*,
+*::before,
+*::after {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid var(--scrollbar-track);
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 58%, transparent),
+    color-mix(in srgb, var(--accent) 28%, transparent)
+  );
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 72%, transparent),
+    color-mix(in srgb, var(--accent) 42%, transparent)
+  );
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
 }
 
 a {
@@ -503,39 +549,6 @@ a {
   background: rgba(255, 255, 255, 0.08);
 }
 
-.isonet-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(159, 178, 200, 0.34) transparent;
-}
-
-.isonet-scrollbar::-webkit-scrollbar {
-  width: 8px;
-}
-
-.isonet-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.isonet-scrollbar::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: linear-gradient(
-    180deg,
-    rgba(159, 178, 200, 0.48),
-    rgba(159, 178, 200, 0.22)
-  );
-  background-clip: padding-box;
-}
-
-.isonet-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    180deg,
-    rgba(184, 200, 216, 0.62),
-    rgba(159, 178, 200, 0.32)
-  );
-  background-clip: padding-box;
-}
-
 .site-footer {
   margin-top: auto;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -777,4 +790,22 @@ a {
 
 .rich-text-editor__content .ProseMirror-focused {
   outline: none;
+}
+
+.vendor-badge-embed-preview {
+  background: var(--background);
+}
+
+.vendor-badge-embed-preview table {
+  width: 100%;
+}
+
+.vendor-badge-embed-preview img {
+  width: 7.5rem;
+  max-width: 7.5rem;
+  height: auto;
+}
+
+.vendor-badge-embed-preview a {
+  color: var(--accent);
 }

@@ -26,7 +26,7 @@ export async function GET() {
     supabase
       .from("badge_global_settings")
       .select(
-        "id, base_asset_id, default_homepage_tier, default_homepage_month, default_homepage_year, created_at, updated_at",
+        "id, base_asset_id, default_homepage_tier, default_homepage_month, default_homepage_year, vendor_badges_live, created_at, updated_at",
       )
       .eq("id", SETTINGS_ID)
       .maybeSingle(),
@@ -75,6 +75,7 @@ export async function PATCH(request: Request) {
     defaultHomepageTier?: number;
     defaultHomepageMonth?: number;
     defaultHomepageYear?: number;
+    vendorBadgesLive?: boolean;
   } | null;
 
   if (!payload) {
@@ -105,6 +106,7 @@ export async function PATCH(request: Request) {
       default_homepage_tier: tier,
       default_homepage_month: month,
       default_homepage_year: year,
+      vendor_badges_live: Boolean(payload.vendorBadgesLive),
     })
     .eq("id", SETTINGS_ID)
     .select(

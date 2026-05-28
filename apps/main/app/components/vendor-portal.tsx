@@ -23,6 +23,7 @@ import {
   type VendorSubscription,
 } from "../../lib/vendor";
 import { VendorAccessPanel } from "./vendor-access-panel";
+import { VendorBadgeEmbedPane } from "./vendor-badge-embed-pane";
 import { VendorForumActivity } from "./vendor-forum-activity";
 import { VendorForumActivitySummary } from "./vendor-forum-activity-summary";
 import { VendorProfileEditor } from "./vendor-profile-editor";
@@ -652,6 +653,32 @@ export function VendorPortal() {
     profile?.account_status === "not_approved" ||
     profile?.account_status === "pending_review";
   const isApproved = profile?.account_status === "approved";
+  const [usesPlaceholderBadge, setUsesPlaceholderBadge] = useState(false);
+
+  useEffect(() => {
+    if (activeSection !== "badge") {
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetch("/api/badges/status")
+      .then((response) => response.json())
+      .then((body: { usesPlaceholder?: boolean }) => {
+        if (!cancelled) {
+          setUsesPlaceholderBadge(Boolean(body.usesPlaceholder));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setUsesPlaceholderBadge(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSection]);
 
   const dashboardMetrics = [
     {
@@ -1171,24 +1198,38 @@ export function VendorPortal() {
                   Your public badge
                 </h2>
                 <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                  This is your public vendor badge preview and account badge details.
+                  This is your public vendor badge preview and account badge details. Use the embed
+                  block below on your website while the official badge artwork is being finalized.
                 </p>
               </header>
+
+              {usesPlaceholderBadge ? (
+                <div className="rounded-sm border border-[var(--accent)]/25 bg-[var(--accent)]/8 px-4 py-3 text-sm leading-7 text-slate-200">
+                  You are viewing the temporary IsoNet placeholder badge. Your embed code uses this
+                  image now; when the final badge design is published in admin, the same badge URL
+                  will update automatically.
+                </div>
+              ) : null}
 
               <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
                 <article className="rounded-sm border border-white/10 bg-black/12 p-5">
                   <div
-                    className="badge-placeholder mx-auto overflow-hidden p-3"
+                    className="badge-placeholder mx-auto max-w-[16rem] overflow-hidden p-3"
                     onContextMenu={(event) => event.preventDefault()}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={`/badges/vendor/${profile.user_id}`}
                       alt={`${profile.company_name} badge`}
-                      className="h-full w-full object-contain"
+                      className="aspect-square h-full w-full object-contain"
                       draggable={false}
                     />
                   </div>
+                  {usesPlaceholderBadge ? (
+                    <p className="badge-placeholder__caption mx-auto mt-3">
+                      Temporary placeholder badge — official artwork coming soon.
+                    </p>
+                  ) : null}
                 </article>
 
                 <article className="rounded-sm border border-white/10 bg-black/12 p-5">
@@ -1217,6 +1258,12 @@ export function VendorPortal() {
                   </div>
                 </article>
               </section>
+
+              <VendorBadgeEmbedPane
+                companyName={profile.company_name}
+                vendorUserId={profile.user_id}
+                badgeStartDate={profile.badge_start_date}
+              />
             </div>
           ) : null}
 

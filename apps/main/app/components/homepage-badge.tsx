@@ -1,14 +1,7 @@
-import { isHomepageBadgeConfigured } from "../../lib/badge-render";
-import { BadgePlaceholder } from "./badge-placeholder";
+import { shouldUsePlaceholderBadges } from "../../lib/badge-render";
 
 export async function HomepageBadge() {
-  const configured = await isHomepageBadgeConfigured();
-
-  if (!configured) {
-    return (
-      <BadgePlaceholder caption="We're still working on the official IsoNet badge. Check back soon." />
-    );
-  }
+  const usesPlaceholder = await shouldUsePlaceholderBadges();
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -20,7 +13,11 @@ export async function HomepageBadge() {
           className="h-full w-full object-contain"
         />
       </div>
-      <p className="badge-placeholder__caption">Official IsoNet badge preview</p>
+      <p className="badge-placeholder__caption">
+        {usesPlaceholder
+          ? "We're still working on the official IsoNet badge. Check back soon."
+          : "Official IsoNet badge preview"}
+      </p>
     </div>
   );
 }

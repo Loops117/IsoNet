@@ -22,7 +22,19 @@ type BadgeGlobalSettings = {
   default_homepage_tier: number;
   default_homepage_month: number;
   default_homepage_year: number;
+  vendor_badges_live: boolean;
 };
+
+const VENDOR_BADGE_ELIGIBLE_STATUSES = new Set([
+  "approved",
+  "in_good_standing",
+  "active",
+  "needs_updates",
+]);
+
+function isTinyBadgeImage(buffer: Buffer) {
+  return buffer.length <= EMPTY_PNG.length + 32;
+}
 
 type BadgeCompositionInput = {
   tier: number;
@@ -34,6 +46,47 @@ const EMPTY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WHhA6MAAAAASUVORK5CYII=",
   "base64",
 );
+
+const PLACEHOLDER_BADGE_SIZE = 512;
+
+let cachedPlaceholderBadge: Buffer | null = null;
+
+const PLACEHOLDER_BADGE_SVG = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${PLACEHOLDER_BADGE_SIZE}" height="${PLACEHOLDER_BADGE_SIZE}" viewBox="0 0 ${PLACEHOLDER_BADGE_SIZE} ${PLACEHOLDER_BADGE_SIZE}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="outerGlow" cx="30%" cy="20%" r="65%">
+      <stop offset="0%" stop-color="#9fb2c8" stop-opacity="0.34" />
+      <stop offset="100%" stop-color="#9fb2c8" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="outerFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.03" />
+    </linearGradient>
+    <linearGradient id="innerFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#071121" />
+      <stop offset="100%" stop-color="#081427" />
+    </linearGradient>
+    <radialGradient id="innerGlow" cx="50%" cy="0%" r="75%">
+      <stop offset="0%" stop-color="#9fb2c8" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#9fb2c8" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <circle cx="256" cy="256" r="248" fill="url(#outerGlow)" />
+  <circle cx="256" cy="256" r="240" fill="url(#outerFill)" stroke="#9fb2c8" stroke-opacity="0.22" stroke-width="4" />
+  <circle cx="256" cy="256" r="206" fill="url(#innerFill)" stroke="#c2d0df" stroke-opacity="0.24" stroke-width="3" />
+  <circle cx="256" cy="256" r="206" fill="url(#innerGlow)" />
+  <text x="256" y="238" text-anchor="middle" fill="#f8fafc" font-family="Arial, Helvetica, sans-serif" font-size="50" font-weight="700" letter-spacing="3">IsoNet</text>
+  <text x="256" y="286" text-anchor="middle" fill="#9fb2c8" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="600" letter-spacing="8">BADGE</text>
+</svg>`;
+
+export async function renderPlaceholderBadge() {
+  if (cachedPlaceholderBadge) {
+    return cachedPlaceholderBadge;
+  }
+
+  cachedPlaceholderBadge = await sharp(Buffer.from(PLACEHOLDER_BADGE_SVG)).png().toBuffer();
+  return cachedPlaceholderBadge;
+}
 
 async function fetchStorageAsset(path: string) {
   const supabase = getSupabaseServerClient();
@@ -56,7 +109,7 @@ async function loadGlobalConfig() {
     supabase
       .from("badge_global_settings")
       .select(
-        "id, base_asset_id, default_homepage_tier, default_homepage_month, default_homepage_year",
+        "id, base_asset_id, default_homepage_tier, default_homepage_month, default_homepage_year, vendor_badges_live",
       )
       .eq("id", "default")
       .maybeSingle(),
@@ -70,8 +123,15 @@ async function loadGlobalConfig() {
     return { settings: null as BadgeGlobalSettings | null, assets: [] as BadgeLayerAsset[] };
   }
 
+  const rawSettings = settingsResult.data as Record<string, unknown> | null;
+
   return {
-    settings: (settingsResult.data as BadgeGlobalSettings | null) ?? null,
+    settings: rawSettings
+      ? ({
+          ...rawSettings,
+          vendor_badges_live: Boolean(rawSettings.vendor_badges_live),
+        } as BadgeGlobalSettings)
+      : null,
     assets: (assetsResult.data as BadgeLayerAsset[]) ?? [],
   };
 }
@@ -117,7 +177,7 @@ async function composeFromLayers(
 ) {
   const baseLayer = pickLayer(assets, "base", null, settings?.base_asset_id ?? null);
   if (!baseLayer) {
-    return EMPTY_PNG;
+    return null;
   }
 
   const tierLayer = pickLayer(assets, "tier", input.tier);
@@ -154,29 +214,46 @@ export async function isHomepageBadgeConfigured() {
   return Boolean(baseLayer?.storage_path);
 }
 
+export async function areVendorBadgesLive() {
+  const { settings } = await loadGlobalConfig();
+  return Boolean(settings?.vendor_badges_live);
+}
+
+export async function shouldUsePlaceholderBadges() {
+  return !(await areVendorBadgesLive());
+}
+
 export async function renderHomepageBadge() {
   const configured = await isHomepageBadgeConfigured();
 
   if (!configured) {
-    return EMPTY_PNG;
+    return renderPlaceholderBadge();
   }
 
   const { settings, assets } = await loadGlobalConfig();
 
   if (!settings) {
-    return EMPTY_PNG;
+    return renderPlaceholderBadge();
   }
 
-  return composeFromLayers(assets, settings, {
-    tier: settings.default_homepage_tier,
-    month: settings.default_homepage_month,
-    year: settings.default_homepage_year,
-  });
+  try {
+    const composed = await composeFromLayers(assets, settings, {
+      tier: settings.default_homepage_tier,
+      month: settings.default_homepage_month,
+      year: settings.default_homepage_year,
+    });
+    if (!composed || isTinyBadgeImage(composed)) {
+      return renderPlaceholderBadge();
+    }
+    return composed;
+  } catch {
+    return renderPlaceholderBadge();
+  }
 }
 
 export async function renderVendorBadge(vendorId: string) {
   if (!hasSupabaseServerEnv()) {
-    return null;
+    return renderPlaceholderBadge();
   }
 
   const supabase = getSupabaseServerClient();
@@ -190,9 +267,20 @@ export async function renderVendorBadge(vendorId: string) {
     return null;
   }
 
-  const activeStatuses = new Set(["approved", "in_good_standing", "active"]);
-  if (!activeStatuses.has(vendorProfile.account_status)) {
+  if (!VENDOR_BADGE_ELIGIBLE_STATUSES.has(vendorProfile.account_status)) {
     return null;
+  }
+
+  const { settings, assets } = await loadGlobalConfig();
+
+  if (!settings?.vendor_badges_live) {
+    return renderPlaceholderBadge();
+  }
+
+  const configured = await isHomepageBadgeConfigured();
+
+  if (!configured) {
+    return renderPlaceholderBadge();
   }
 
   const now = new Date();
@@ -200,10 +288,13 @@ export async function renderVendorBadge(vendorId: string) {
   const year = now.getUTCFullYear();
   const tier = Number(vendorProfile.badge_tier ?? 1) || 1;
 
-  const { settings, assets } = await loadGlobalConfig();
-  if (!settings) {
-    return null;
+  try {
+    const composed = await composeFromLayers(assets, settings, { tier, month, year });
+    if (!composed || isTinyBadgeImage(composed)) {
+      return renderPlaceholderBadge();
+    }
+    return composed;
+  } catch {
+    return renderPlaceholderBadge();
   }
-
-  return composeFromLayers(assets, settings, { tier, month, year });
 }

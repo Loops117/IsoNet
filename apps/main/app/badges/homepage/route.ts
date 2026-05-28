@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { renderHomepageBadge } from "../../../lib/badge-render";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const image = await renderHomepageBadge();
