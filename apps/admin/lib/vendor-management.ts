@@ -120,6 +120,8 @@ export type AdminVendorDetail = {
     email: string;
     account_status: AdminVendorAccountStatus;
     badge_url: string | null;
+    badge_tier: number | null;
+    badge_start_date: string | null;
     company_logo_url: string | null;
     average_rating: number;
     review_count: number;
@@ -135,6 +137,17 @@ export type AdminVendorDetail = {
   statementAgreements: AdminVendorStatementAgreement[];
   adminActivity: AdminVendorActivity[];
 };
+
+export const VENDOR_APPROVAL_EMAIL_ACTIVITY_TYPE = "approval_email_sent";
+
+export const approvedVendorStatuses: AdminVendorAccountStatus[] = [
+  "approved",
+  "in_good_standing",
+];
+
+export function isApprovedVendorStatus(value: string | null | undefined) {
+  return approvedVendorStatuses.includes(value as AdminVendorAccountStatus);
+}
 
 export const adminVendorStatusOptions: AdminVendorAccountStatus[] = [
   "not_approved",

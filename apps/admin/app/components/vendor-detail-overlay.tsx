@@ -10,6 +10,8 @@ import {
   formatAdminSalesProfileList,
   formatAdminStructuredAddress,
   formatAdminVendorStatus,
+  isApprovedVendorStatus,
+  VENDOR_APPROVAL_EMAIL_ACTIVITY_TYPE,
   type AdminVendorDetail,
 } from "../../lib/vendor-management";
 
@@ -25,6 +27,7 @@ type VendorDetailOverlayProps = {
   notePending: boolean;
   emailType: VendorAuthEmailType;
   emailSendPending: boolean;
+  approvalEmailSendPending: boolean;
   message: string | null;
   error: string | null;
   onClose: () => void;
@@ -34,6 +37,7 @@ type VendorDetailOverlayProps = {
   onNoteSubmit: () => void;
   onEmailTypeChange: (value: VendorAuthEmailType) => void;
   onSendEmail: () => void;
+  onSendApprovalEmail: () => void;
 };
 
 function DataList({
@@ -71,6 +75,7 @@ export function VendorDetailOverlay({
   notePending,
   emailType,
   emailSendPending,
+  approvalEmailSendPending,
   message,
   error,
   onClose,
@@ -80,6 +85,7 @@ export function VendorDetailOverlay({
   onNoteSubmit,
   onEmailTypeChange,
   onSendEmail,
+  onSendApprovalEmail,
 }: VendorDetailOverlayProps) {
   useEffect(() => {
     if (!open) {
@@ -107,6 +113,13 @@ export function VendorDetailOverlay({
   }
 
   const profile = detail?.profile;
+  const approvalEmailActivity =
+    detail?.adminActivity.find(
+      (entry) => entry.activity_type === VENDOR_APPROVAL_EMAIL_ACTIVITY_TYPE,
+    ) ?? null;
+  const showApprovalEmailSection = profile
+    ? isApprovedVendorStatus(profile.account_status)
+    : false;
 
   return (
     <div className="vendor-overlay" role="presentation">
@@ -182,6 +195,52 @@ export function VendorDetailOverlay({
                   </button>
                 </div>
               </section>
+
+              {showApprovalEmailSection ? (
+                <section className="vendor-overlay__section">
+                  <h3 className="vendor-overlay__section-title">Vendor approval email</h3>
+                  {approvalEmailActivity ? (
+                    <div className="vendor-overlay__banner vendor-overlay__banner--success">
+                      Approval email sent on{" "}
+                      {formatAdminDateTime(approvalEmailActivity.created_at)} by{" "}
+                      {approvalEmailActivity.actor_email}. A duplicate email cannot be sent from
+                      this panel.
+                    </div>
+                  ) : (
+                    <p className="vendor-overlay__temp-note">
+                      Sends a one-time approval email with the vendor&apos;s business profile and
+                      badge URL. Use this after the account is marked approved.
+                    </p>
+                  )}
+                  <div className="vendor-overlay__status-row">
+                    <button
+                      type="button"
+                      className="admin-primary-button"
+                      onClick={onSendApprovalEmail}
+                      disabled={approvalEmailSendPending || Boolean(approvalEmailActivity)}
+                    >
+                      {approvalEmailSendPending
+                        ? "Sending approval email"
+                        : approvalEmailActivity
+                          ? "Approval email already sent"
+                          : "Send approval email"}
+                    </button>
+                  </div>
+                  {profile.badge_url ? (
+                    <p className="mt-3 text-sm leading-6 text-slate-400">
+                      Badge URL on file:{" "}
+                      <a
+                        href={profile.badge_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="vendor-data-list__link break-all"
+                      >
+                        {profile.badge_url}
+                      </a>
+                    </p>
+                  ) : null}
+                </section>
+              ) : null}
 
               <section className="vendor-overlay__section vendor-overlay__section--temp">
                 <h3 className="vendor-overlay__section-title">Temporary: send auth email</h3>

@@ -6,6 +6,7 @@ import {
   getSupabaseServerClient,
   hasSupabaseServiceRoleEnv,
 } from "../../../../../lib/supabase-server";
+import { buildVendorBadgeUrl } from "../../../../../lib/vendor-badge-url";
 
 type RouteContext = {
   params: Promise<{
@@ -46,7 +47,7 @@ export async function GET(_request: Request, context: RouteContext) {
       supabase
         .from("vendor_profiles")
         .select(
-          "user_id, owner_name, first_name, last_name, company_name, website_url, address, street_address, address_line_2, city, state_province, postal_code, country, phone_number, email, account_status, badge_url, company_logo_url, average_rating, review_count, start_date, badge_start_date, sales_locations, sales_items",
+          "user_id, owner_name, first_name, last_name, company_name, website_url, address, street_address, address_line_2, city, state_province, postal_code, country, phone_number, email, account_status, badge_url, badge_tier, company_logo_url, average_rating, review_count, start_date, badge_start_date, sales_locations, sales_items",
         )
         .eq("user_id", vendorId)
         .maybeSingle(),
@@ -150,7 +151,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   const supabase = getSupabaseServerClient();
   const { data: existingProfile, error: existingError } = await supabase
     .from("vendor_profiles")
-    .select("account_status, badge_start_date")
+    .select("account_status, badge_start_date, badge_url")
     .eq("user_id", vendorId)
     .maybeSingle();
 
@@ -180,6 +181,10 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   if (shouldAssignBadgeStartDate) {
     updatePayload.badge_start_date = new Date().toISOString();
+  }
+
+  if (eligibleStatuses.has(accountStatus) && !existingProfile.badge_url?.trim()) {
+    updatePayload.badge_url = buildVendorBadgeUrl(vendorId);
   }
 
   const { error } = await supabase

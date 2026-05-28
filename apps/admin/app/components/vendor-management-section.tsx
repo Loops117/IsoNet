@@ -43,6 +43,7 @@ export function VendorManagementSection() {
   const [vendorNotePending, setVendorNotePending] = useState(false);
   const [vendorEmailType, setVendorEmailType] = useState<VendorAuthEmailType>("recovery");
   const [vendorEmailSendPending, setVendorEmailSendPending] = useState(false);
+  const [vendorApprovalEmailSendPending, setVendorApprovalEmailSendPending] = useState(false);
 
   const loadVendorSummaries = useCallback(async () => {
     setVendorListLoading(true);
@@ -153,6 +154,48 @@ export function VendorManagementSection() {
 
     setVendorStatusMessage(body?.message ?? "Email send requested.");
     setVendorEmailSendPending(false);
+    await loadVendorDetail(selectedVendorId);
+  }
+
+  async function handleVendorSendApprovalEmail() {
+    if (!selectedVendorId) {
+      return;
+    }
+
+    setVendorApprovalEmailSendPending(true);
+    setVendorDetailError(null);
+    setVendorStatusMessage(null);
+
+    const response = await fetch(
+      `/api/admin/vendors/${selectedVendorId}/send-approval-email`,
+      { method: "POST" },
+    );
+    const body = (await response.json().catch(() => null)) as
+      | {
+          error?: string;
+          message?: string;
+          alreadySent?: boolean;
+          sentAt?: string;
+          sentBy?: string;
+        }
+      | null;
+
+    if (!response.ok) {
+      if (body?.alreadySent && body.sentAt) {
+        setVendorDetailError(
+          `Approval email was already sent on ${new Date(body.sentAt).toLocaleString()}${body.sentBy ? ` by ${body.sentBy}` : ""}.`,
+        );
+      } else {
+        setVendorDetailError(body?.error ?? "Unable to send the approval email.");
+      }
+      setVendorApprovalEmailSendPending(false);
+      await loadVendorDetail(selectedVendorId);
+      return;
+    }
+
+    setVendorStatusMessage(body?.message ?? "Approval email sent.");
+    setVendorApprovalEmailSendPending(false);
+    await loadVendorSummaries();
     await loadVendorDetail(selectedVendorId);
   }
 
@@ -290,6 +333,7 @@ export function VendorManagementSection() {
         notePending={vendorNotePending}
         emailType={vendorEmailType}
         emailSendPending={vendorEmailSendPending}
+        approvalEmailSendPending={vendorApprovalEmailSendPending}
         message={vendorStatusMessage}
         error={vendorDetailError}
         onClose={closeVendorDetail}
@@ -299,6 +343,7 @@ export function VendorManagementSection() {
         onNoteSubmit={handleVendorNoteSubmit}
         onEmailTypeChange={setVendorEmailType}
         onSendEmail={handleVendorSendEmail}
+        onSendApprovalEmail={handleVendorSendApprovalEmail}
       />
     </div>
   );
