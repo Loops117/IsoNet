@@ -2,7 +2,14 @@
 
 import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
-import { type ChangeEvent, useEffect, useMemo, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { getSupabaseBrowserClient, hasSupabaseBrowserEnv } from "../../lib/supabase";
 import {
@@ -16,9 +23,21 @@ import {
   type VendorSubscription,
 } from "../../lib/vendor";
 import { VendorAccessPanel } from "./vendor-access-panel";
+import { VendorForumActivity } from "./vendor-forum-activity";
+import { VendorForumActivitySummary } from "./vendor-forum-activity-summary";
+import { VendorProfileEditor } from "./vendor-profile-editor";
+import {
+  getProfileCompletionPercent,
+  VendorProfileCompletionCard,
+} from "./vendor-profile-completion-card";
+
+const VENDOR_SUBSCRIPTION_TIER_LABEL = "Basic";
+const VENDOR_SUBSCRIPTION_TIER_NOTE = "Free Plan (Additional plans coming soon)";
 
 type VendorSection =
   | "dashboard"
+  | "badge"
+  | "forum"
   | "profile"
   | "reviews"
   | "analytics"
@@ -26,6 +45,8 @@ type VendorSection =
 
 const sectionLabels: Record<VendorSection, string> = {
   dashboard: "Dashboard",
+  badge: "My Badge",
+  forum: "Forum Activity",
   profile: "Business Profile",
   reviews: "Reviews",
   analytics: "Analytics",
@@ -88,6 +109,14 @@ function normalizeProfile(data: Record<string, unknown> | null) {
     average_rating: Number(data.average_rating ?? 0),
     review_count: Number(data.review_count ?? 0),
     start_date: String(data.start_date ?? ""),
+    badge_start_date: data.badge_start_date ? String(data.badge_start_date) : null,
+    sales_locations: Array.isArray(data.sales_locations)
+      ? data.sales_locations.map((value) => String(value))
+      : [],
+    sales_items: Array.isArray(data.sales_items)
+      ? data.sales_items.map((value) => String(value))
+      : [],
+    about_us_html: data.about_us_html ? String(data.about_us_html) : null,
     created_at: String(data.created_at ?? ""),
     updated_at: String(data.updated_at ?? ""),
   } as VendorProfile;
@@ -191,6 +220,7 @@ export function VendorPortal() {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
   const [activeSection, setActiveSection] = useState<VendorSection>("dashboard");
+  const [forumUnreadCount, setForumUnreadCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [authPending, setAuthPending] = useState(false);
@@ -210,6 +240,13 @@ export function VendorPortal() {
   const [disputeDrafts, setDisputeDrafts] = useState<
     Record<string, { subject: string; detail: string }>
   >({});
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [passwordDraft, setPasswordDraft] = useState("");
+  const [confirmPasswordDraft, setConfirmPasswordDraft] = useState("");
+  const [passwordResetPending, setPasswordResetPending] = useState(false);
+  const [passwordResetError, setPasswordResetError] = useState<string | null>(null);
+  const [passwordResetMessage, setPasswordResetMessage] = useState<string | null>(null);
+  const loadedForUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!supabase) {
@@ -217,56 +254,131 @@ export function VendorPortal() {
     }
     const client = supabase;
 
-    let isMounted = true;
+    const urlSearchParams = new URLSearchParams(window.location.search);
+    const initialRecovery =
+      urlSearchParams.get("type") === "recovery" ||
+      urlSearchParams.get("action") === "recovery";
 
-    void client.auth.getUser().then(({ data }) => {
-      if (isMounted) {
-        setCurrentUser(data.user ?? null);
+    if (initialRecovery) {
+      setIsPasswordRecovery(true);
+    }
+
+    void client.auth.getSession().then(({ data }) => {
+      setCurrentUser(data.session?.user ?? null);
+      setSessionLoading(false);
+    });
+
+    const {
+      data: { subscription: authSubscription },
+    } = client.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setIsPasswordRecovery(true);
+        setPasswordResetError(null);
+        setPasswordResetMessage(null);
+      }
+
+      if (event === "SIGNED_OUT") {
+        loadedForUserIdRef.current = null;
+        setCurrentUser(null);
         setProfile(null);
         setSocialLinks([]);
         setSubscription(null);
         setReviews([]);
         setDisputes([]);
         setSessionLoading(false);
+        return;
       }
-    });
 
-    const {
-      data: { subscription },
-    } = client.auth.onAuthStateChange((_event, session) => {
-      setCurrentUser(session?.user ?? null);
-      setProfile(null);
-      setSocialLinks([]);
-      setSubscription(null);
-      setReviews([]);
-      setDisputes([]);
+      if (session?.user) {
+        setCurrentUser(session.user);
+      }
+
       setSessionLoading(false);
     });
 
     return () => {
-      isMounted = false;
-      subscription.unsubscribe();
+      authSubscription.unsubscribe();
     };
   }, [supabase]);
 
-  useEffect(() => {
-    if (!supabase || !currentUser) {
+  async function handlePasswordReset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!supabase) {
       return;
     }
+
+    const nextPassword = passwordDraft.trim();
+    if (!nextPassword) {
+      setPasswordResetError("Enter a new password.");
+      setPasswordResetMessage(null);
+      return;
+    }
+
+    if (nextPassword.length < 8) {
+      setPasswordResetError("Password must be at least 8 characters.");
+      setPasswordResetMessage(null);
+      return;
+    }
+
+    if (nextPassword !== confirmPasswordDraft.trim()) {
+      setPasswordResetError("Passwords do not match.");
+      setPasswordResetMessage(null);
+      return;
+    }
+
+    setPasswordResetPending(true);
+    setPasswordResetError(null);
+    setPasswordResetMessage(null);
+
+    try {
+      const { error } = await supabase.auth.updateUser({ password: nextPassword });
+      if (error) {
+        throw error;
+      }
+
+      setPasswordDraft("");
+      setConfirmPasswordDraft("");
+      setIsPasswordRecovery(false);
+      setPasswordResetMessage("Password updated. You can now use the vendor portal.");
+      router.replace("/vendor");
+      router.refresh();
+    } catch (error) {
+      setPasswordResetError(
+        getDataErrorMessage(error, "Unable to reset your password right now."),
+      );
+    } finally {
+      setPasswordResetPending(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!supabase || !currentUser) {
+      loadedForUserIdRef.current = null;
+      return;
+    }
+
+    if (loadedForUserIdRef.current === currentUser.id) {
+      return;
+    }
+
     const client = supabase;
     const user = currentUser;
+    const shouldShowLoading = profile?.user_id !== currentUser.id;
 
     let isMounted = true;
 
     async function loadVendorData() {
-      setDataLoading(true);
+      if (shouldShowLoading) {
+        setDataLoading(true);
+      }
       setDataError(null);
 
       try {
         const profileQuery = await client
           .from("vendor_profiles")
           .select(
-            "user_id, owner_name, first_name, last_name, company_name, website_url, address, street_address, address_line_2, city, state_province, postal_code, country, phone_number, email, account_status, badge_url, company_logo_url, average_rating, review_count, start_date, created_at, updated_at",
+            "user_id, owner_name, first_name, last_name, company_name, website_url, address, street_address, address_line_2, city, state_province, postal_code, country, phone_number, email, account_status, badge_url, company_logo_url, average_rating, review_count, start_date, badge_start_date, sales_locations, sales_items, about_us_html, created_at, updated_at",
           )
           .eq("user_id", user.id)
           .maybeSingle();
@@ -285,7 +397,7 @@ export function VendorPortal() {
           const retryProfileQuery = await client
             .from("vendor_profiles")
             .select(
-              "user_id, owner_name, first_name, last_name, company_name, website_url, address, street_address, address_line_2, city, state_province, postal_code, country, phone_number, email, account_status, badge_url, company_logo_url, average_rating, review_count, start_date, created_at, updated_at",
+              "user_id, owner_name, first_name, last_name, company_name, website_url, address, street_address, address_line_2, city, state_province, postal_code, country, phone_number, email, account_status, badge_url, company_logo_url, average_rating, review_count, start_date, badge_start_date, sales_locations, sales_items, about_us_html, created_at, updated_at",
             )
             .eq("user_id", user.id)
             .maybeSingle();
@@ -362,6 +474,7 @@ export function VendorPortal() {
         setDisputes(
           normalizeDisputes(disputeQuery.data as Record<string, unknown>[] | null),
         );
+        loadedForUserIdRef.current = user.id;
       } catch (error) {
         if (!isMounted) {
           return;
@@ -385,7 +498,7 @@ export function VendorPortal() {
     return () => {
       isMounted = false;
     };
-  }, [currentUser, supabase]);
+  }, [currentUser?.id, supabase]);
 
   async function handleSignOut() {
     if (!supabase) {
@@ -527,21 +640,14 @@ export function VendorPortal() {
     setIsMobileMenuOpen(false);
   }
 
-  const completionFields = [
-    profile?.first_name ?? profile?.owner_name,
-    profile?.last_name ?? profile?.owner_name,
-    profile?.company_name,
-    profile?.website_url,
-    profile?.street_address ?? profile?.address,
-    profile?.city,
-    profile?.postal_code,
-    profile?.country,
-    profile?.phone_number,
-    profile?.email,
-    socialLinks.length > 0 ? "socials" : "",
-  ].filter(Boolean).length;
-
-  const completionPercent = Math.round((completionFields / 10) * 100);
+  const completionPercent = getProfileCompletionPercent(profile, socialLinks.length);
+  const hasBadgeStartDate = Boolean(profile?.badge_start_date);
+  const badgeStartDateLabel =
+    profile?.account_status === "approved" || profile?.account_status === "in_good_standing"
+      ? hasBadgeStartDate
+        ? formatVendorDate(profile.badge_start_date)
+        : "Not assigned yet"
+      : "Not assigned yet";
   const isAwaitingApproval =
     profile?.account_status === "not_approved" ||
     profile?.account_status === "pending_review";
@@ -562,13 +668,13 @@ export function VendorPortal() {
     },
     {
       label: "Subscription tier",
-      value: subscription?.tier_name ?? "Application",
-      note: formatVendorStatus(subscription?.status ?? "inactive"),
+      value: VENDOR_SUBSCRIPTION_TIER_LABEL,
+      note: VENDOR_SUBSCRIPTION_TIER_NOTE,
     },
     {
       label: "Profile completion",
       value: `${completionPercent}%`,
-      note: "Business profile readiness",
+      note: "Required onboarding fields only (max 100%)",
     },
   ];
 
@@ -596,6 +702,72 @@ export function VendorPortal() {
       <main className="flex flex-1 items-center justify-center px-5 py-12 sm:px-6">
         <section className="isonet-panel w-full max-w-3xl p-6 sm:p-8">
           <p className="text-sm leading-7 text-slate-300">Loading vendor session...</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (isPasswordRecovery) {
+    return (
+      <main className="flex flex-1 items-center justify-center px-5 py-12 sm:px-6">
+        <section className="isonet-panel w-full max-w-3xl p-6 sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--accent)]">
+            Vendor Portal
+          </p>
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white">
+            Set a new password
+          </h1>
+          <p className="mt-5 text-sm leading-8 text-slate-300 sm:text-base">
+            Enter a new password for your vendor account to complete recovery.
+          </p>
+
+          <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handlePasswordReset}>
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                New password
+              </span>
+              <input
+                type="password"
+                value={passwordDraft}
+                onChange={(event) => setPasswordDraft(event.target.value)}
+                className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                placeholder="Enter new password"
+                autoComplete="new-password"
+              />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+                Confirm password
+              </span>
+              <input
+                type="password"
+                value={confirmPasswordDraft}
+                onChange={(event) => setConfirmPasswordDraft(event.target.value)}
+                className="w-full rounded-sm border border-white/12 bg-slate-950/70 px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+                placeholder="Retype new password"
+                autoComplete="new-password"
+              />
+            </label>
+
+            {passwordResetError ? (
+              <div className="rounded-sm border border-rose-300/30 bg-rose-200/10 px-4 py-4 text-sm leading-7 text-rose-100 md:col-span-2">
+                {passwordResetError}
+              </div>
+            ) : null}
+
+            {passwordResetMessage ? (
+              <div className="rounded-sm border border-emerald-300/30 bg-emerald-200/10 px-4 py-4 text-sm leading-7 text-emerald-100 md:col-span-2">
+                {passwordResetMessage}
+              </div>
+            ) : null}
+
+            <div className="md:col-span-2">
+              <button type="submit" className="isonet-button" disabled={passwordResetPending}>
+                {passwordResetPending ? "Updating password" : "Save new password"}
+              </button>
+            </div>
+          </form>
         </section>
       </main>
     );
@@ -730,7 +902,14 @@ export function VendorPortal() {
                       activeSection === section ? "portal-nav-button-active" : "",
                     ].join(" ")}
                   >
-                    {sectionLabels[section]}
+                    <span className="flex items-center justify-between gap-2">
+                      <span>{sectionLabels[section]}</span>
+                      {section === "forum" && forumUnreadCount > 0 ? (
+                        <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[10px] font-semibold text-slate-950">
+                          {forumUnreadCount > 9 ? "9+" : forumUnreadCount}
+                        </span>
+                      ) : null}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -777,13 +956,13 @@ export function VendorPortal() {
             </div>
           ) : null}
 
-          {dataLoading ? (
+          {dataLoading && currentUser && !profile ? (
             <div className="rounded-sm border border-white/10 bg-black/12 p-4 text-sm leading-7 text-slate-300">
               Loading vendor dashboard data...
             </div>
           ) : null}
 
-          {!dataLoading && activeSection === "dashboard" ? (
+          {profile && activeSection === "dashboard" ? (
             <div className="space-y-4">
               <header className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--accent)]">
@@ -834,6 +1013,36 @@ export function VendorPortal() {
                     </p>
                   </article>
                 ))}
+              </section>
+
+              <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+                {completionPercent < 100 ? (
+                  <VendorProfileCompletionCard
+                    profile={profile}
+                    socialLinkCount={socialLinks.length}
+                    compact
+                  />
+                ) : null}
+
+                <article className="rounded-sm border border-white/10 bg-black/12 p-4">
+                  <div className="border-b border-white/10 pb-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--accent)]">
+                      Forum activity
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-white">
+                      {forumUnreadCount > 0
+                        ? `${forumUnreadCount} unread notification${forumUnreadCount === 1 ? "" : "s"}`
+                        : "You're caught up"}
+                    </h3>
+                  </div>
+                  <div className="mt-4">
+                    <VendorForumActivitySummary
+                      userId={currentUser.id}
+                      onUnreadCountChange={setForumUnreadCount}
+                      onViewAll={() => navigateToSection("forum")}
+                    />
+                  </div>
+                </article>
               </section>
 
               <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
@@ -928,7 +1137,90 @@ export function VendorPortal() {
             </div>
           ) : null}
 
-          {!dataLoading && activeSection === "profile" ? (
+          {profile && activeSection === "forum" ? (
+            <div className="space-y-4">
+              <header className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--accent)]">
+                  Forum Activity
+                </p>
+                <h2 className="text-2xl font-semibold tracking-tight text-white">
+                  Replies, threads, and mentions
+                </h2>
+                <p className="max-w-3xl text-sm leading-7 text-slate-300">
+                  Stay on top of forum conversations tied to your vendor account. Open a
+                  notification to jump straight to the thread.
+                </p>
+              </header>
+
+              <section className="rounded-sm border border-white/10 bg-black/12 p-4 sm:p-6">
+                <VendorForumActivity
+                  userId={currentUser.id}
+                  onUnreadCountChange={setForumUnreadCount}
+                />
+              </section>
+            </div>
+          ) : null}
+
+          {profile && activeSection === "badge" ? (
+            <div className="space-y-4">
+              <header className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--accent)]">
+                  My Badge
+                </p>
+                <h2 className="text-2xl font-semibold tracking-tight text-white">
+                  Your public badge
+                </h2>
+                <p className="max-w-3xl text-sm leading-7 text-slate-300">
+                  This is your public vendor badge preview and account badge details.
+                </p>
+              </header>
+
+              <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+                <article className="rounded-sm border border-white/10 bg-black/12 p-5">
+                  <div
+                    className="badge-placeholder mx-auto overflow-hidden p-3"
+                    onContextMenu={(event) => event.preventDefault()}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/badges/vendor/${profile.user_id}`}
+                      alt={`${profile.company_name} badge`}
+                      className="h-full w-full object-contain"
+                      draggable={false}
+                    />
+                  </div>
+                </article>
+
+                <article className="rounded-sm border border-white/10 bg-black/12 p-5">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      { label: "Badge URL", value: profile.badge_url ?? "Not assigned yet" },
+                      { label: "Subscription tier", value: VENDOR_SUBSCRIPTION_TIER_LABEL },
+                      { label: "Badge start date", value: badgeStartDateLabel },
+                      {
+                        label: "Account standing",
+                        value: formatVendorStatus(profile.account_status),
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className="rounded-sm border border-white/10 bg-white/4 p-3"
+                      >
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                          {item.label}
+                        </p>
+                        <p className="mt-2 break-words text-sm leading-6 text-slate-100">
+                          {item.value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              </section>
+            </div>
+          ) : null}
+
+          {profile && supabase && activeSection === "profile" ? (
             <div className="space-y-4">
               <header className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--accent)]">
@@ -938,13 +1230,18 @@ export function VendorPortal() {
                   Vendor business details
                 </h2>
                 <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                  The onboarding records below were collected during account
-                  signup and will form the base of your public-facing vendor
-                  profile and future review visibility.
+                  Update your business information, address, and sales profile. Changes save to your
+                  vendor record and directory listing.
                 </p>
               </header>
 
               <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+                <VendorProfileCompletionCard
+                  profile={profile}
+                  socialLinkCount={socialLinks.length}
+                  defaultCollapsed
+                />
+
                 <article className="rounded-sm border border-white/10 bg-black/12 p-4">
                   <div className="rounded-sm border border-white/10 bg-white/4 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">
@@ -986,106 +1283,42 @@ export function VendorPortal() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {[
-                      {
-                        label: "First Name",
-                        value: profile?.first_name ?? "Not set",
-                      },
-                      {
-                        label: "Last Name",
-                        value: profile?.last_name ?? "Not set",
-                      },
-                      { label: "Company Name", value: profile?.company_name ?? "Not set" },
-                      { label: "Email", value: profile?.email ?? "Not set" },
-                      { label: "Phone Number", value: profile?.phone_number ?? "Not set" },
-                      { label: "Website URL", value: profile?.website_url ?? "Not set" },
-                      {
-                        label: "Street Address",
-                        value: profile?.street_address ?? profile?.address ?? "Not set",
-                      },
-                      {
-                        label: "Address Line 2",
-                        value: profile?.address_line_2 ?? "Not set",
-                      },
-                      { label: "City", value: profile?.city ?? "Not set" },
-                      {
-                        label: "State / Province",
-                        value: profile?.state_province ?? "Not set",
-                      },
-                      {
-                        label: "ZIP / Postal Code",
-                        value: profile?.postal_code ?? "Not set",
-                      },
-                      { label: "Country", value: profile?.country ?? "Not set" },
-                      {
-                        label: "Full Address",
-                        value: formatStructuredAddress(profile),
-                      },
-                      {
-                        label: "Account Status",
-                        value: formatVendorStatus(profile?.account_status),
-                      },
-                      {
-                        label: "Badge URL",
-                        value: profile?.badge_url ?? "Not assigned yet",
-                      },
-                    ].map((item) => (
-                      <div
-                        key={item.label}
-                        className="rounded-sm border border-white/10 bg-white/4 p-3"
-                      >
+                  <div className="mt-4 space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-sm border border-white/10 bg-white/4 p-3">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                          {item.label}
+                          Account status
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-slate-100">
+                          {formatVendorStatus(profile.account_status)}
+                        </p>
+                      </div>
+                      <div className="rounded-sm border border-white/10 bg-white/4 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                          Badge URL
                         </p>
                         <p className="mt-2 text-sm leading-6 text-slate-100 break-words">
-                          {item.value}
+                          {profile.badge_url ?? "Not assigned yet"}
                         </p>
                       </div>
-                    ))}
-                  </div>
-                </article>
+                    </div>
 
-                <article className="rounded-sm border border-white/10 bg-black/12 p-4">
-                  <div className="border-b border-white/10 pb-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--accent)]">
-                      Social Media
-                    </p>
-                    <h3 className="mt-2 text-xl font-semibold text-white">
-                      Linked vendor channels
-                    </h3>
-                  </div>
-
-                  <div className="mt-4 space-y-3">
-                    {socialLinks.length > 0 ? (
-                      socialLinks.map((link) => (
-                        <a
-                          key={link.id}
-                          href={link.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block rounded-sm border border-white/10 bg-white/4 p-3 transition-colors hover:bg-white/6"
-                        >
-                          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-100">
-                            {link.platform}
-                          </p>
-                          <p className="mt-2 break-all text-sm leading-6 text-slate-300">
-                            {link.url}
-                          </p>
-                        </a>
-                      ))
-                    ) : (
-                      <div className="rounded-sm border border-white/10 bg-white/4 p-3 text-sm leading-6 text-slate-300">
-                        No social media links were saved during onboarding yet.
-                      </div>
-                    )}
+                    <VendorProfileEditor
+                      supabase={supabase}
+                      profile={profile}
+                      socialLinks={socialLinks}
+                      onSaved={setProfile}
+                      onSocialLinksSaved={setSocialLinks}
+                      onError={setProfileError}
+                      onMessage={setProfileMessage}
+                    />
                   </div>
                 </article>
               </section>
             </div>
           ) : null}
 
-          {!dataLoading && activeSection === "reviews" ? (
+          {profile && activeSection === "reviews" ? (
             <div className="space-y-4">
               <header className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--accent)]">
@@ -1224,7 +1457,7 @@ export function VendorPortal() {
             </div>
           ) : null}
 
-          {!dataLoading && activeSection === "analytics" ? (
+          {profile && activeSection === "analytics" ? (
             <div className="space-y-4">
               <header className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--accent)]">
@@ -1259,7 +1492,7 @@ export function VendorPortal() {
                   {
                     label: "Profile readiness",
                     value: `${completionPercent}%`,
-                    note: "Completion score for onboarding fields",
+                    note: "Required fields only, capped at 100%",
                   },
                 ].map((metric) => (
                   <article
@@ -1281,7 +1514,7 @@ export function VendorPortal() {
             </div>
           ) : null}
 
-          {!dataLoading && activeSection === "subscription" ? (
+          {profile && activeSection === "subscription" ? (
             <div className="space-y-4">
               <header className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--accent)]">
@@ -1291,20 +1524,24 @@ export function VendorPortal() {
                   Vendor membership tracking
                 </h2>
                 <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                  Monthly subscription tiers will be connected later, but the
-                  current data model already tracks the vendor tier, current
-                  subscription standing, and lifecycle dates.
+                  Monthly subscription tiers are coming soon
                 </p>
               </header>
 
               <section className="grid gap-4 xl:grid-cols-[1fr_0.9fr]">
                 <article className="rounded-sm border border-white/10 bg-black/12 p-4">
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    Subscription tier
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold tracking-tight text-white">
+                    {VENDOR_SUBSCRIPTION_TIER_LABEL}
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-slate-300">
+                    {VENDOR_SUBSCRIPTION_TIER_NOTE}
+                  </p>
+
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
                     {[
-                      {
-                        label: "Tier",
-                        value: subscription?.tier_name ?? "Application",
-                      },
                       {
                         label: "Status",
                         value: formatVendorStatus(subscription?.status ?? "inactive"),
@@ -1330,20 +1567,6 @@ export function VendorPortal() {
                         </p>
                       </div>
                     ))}
-                  </div>
-                </article>
-
-                <article className="rounded-sm border border-white/10 bg-black/12 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--accent)]">
-                    Badge and billing readiness
-                  </p>
-                  <p className="mt-4 text-sm leading-7 text-slate-300">
-                    Badge assignment is currently tracked on the vendor profile,
-                    and subscription identifiers are already available for future
-                    payment processor integration.
-                  </p>
-                  <div className="mt-4 rounded-sm border border-white/10 bg-white/4 p-3 text-sm leading-6 text-slate-200">
-                    Badge URL: {profile?.badge_url ?? "Not assigned yet"}
                   </div>
                 </article>
               </section>

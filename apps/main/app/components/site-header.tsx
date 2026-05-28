@@ -1,7 +1,6 @@
 import Link from "next/link";
 
-import { siteNavLinks } from "../../lib/site-nav";
-import { SiteNavAnchor } from "./site-nav-link";
+import { SiteNavMenus } from "./site-nav-menus";
 
 type SiteHeaderProps = {
   floating?: boolean;
@@ -26,15 +25,7 @@ export function SiteHeader({ floating = false, visible = true }: SiteHeaderProps
           <span className="site-header__brand-subtitle">IsoNet</span>
         </Link>
 
-        <nav className="site-header__nav" aria-label="Site navigation">
-          {siteNavLinks.map((link) => (
-            <SiteNavAnchor
-              key={link.href}
-              link={link}
-              className="site-header__link"
-            />
-          ))}
-        </nav>
+        <SiteNavMenus variant="header" />
       </div>
     </header>
   );

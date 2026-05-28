@@ -59,3 +59,21 @@ export function hasValidSalesProfile(selections: Record<string, boolean>) {
     getSelectedSalesKeys(selections, "item").length > 0
   );
 }
+
+export function salesProfileStateFromArrays(locations: string[], items: string[]) {
+  const state = createEmptySalesProfileState();
+
+  for (const key of locations) {
+    if (key in state) {
+      state[key] = true;
+    }
+  }
+
+  for (const key of items) {
+    if (key in state) {
+      state[key] = true;
+    }
+  }
+
+  return state;
+}

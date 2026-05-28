@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -13,6 +13,8 @@ import {
   type AdminVendorSummary,
 } from "../../lib/vendor-management";
 import { VendorManagementSection } from "./vendor-management-section";
+import { ForumSettings } from "./forum-settings";
+import { GlobalBadgeSettings } from "./global-badge-settings";
 
 type TopLevelSection =
   | "dashboard"
@@ -21,7 +23,7 @@ type TopLevelSection =
   | "sales"
   | "settings";
 
-type SettingsSection = "home-page-settings";
+type SettingsSection = "home-page-settings" | "global-settings" | "forum-settings";
 type SidebarMode = "main" | "settings";
 
 const paneMenu = [
@@ -381,6 +383,12 @@ export function AdminPortal({
 
   const currentPanelLabel =
     paneMenu.find((pane) => pane.id === selectedPaneId)?.label ?? "Home Page Settings";
+  const currentSettingsLabel =
+    activeSettingsSection === "global-settings"
+      ? "Global"
+      : activeSettingsSection === "forum-settings"
+        ? "Forums"
+        : currentPanelLabel;
   const pendingApprovalVendors = vendorSummaries.filter((vendor) =>
     ["not_approved", "pending_review"].includes(vendor.account_status),
   );
@@ -413,7 +421,7 @@ export function AdminPortal({
       : activeSection === "vendors"
         ? "Vendor Management"
       : activeSection === "settings"
-        ? `Settings / ${currentPanelLabel}`
+        ? `Settings / ${currentSettingsLabel}`
         : placeholderContent[activeSection].title;
 
   if (!isAuthenticated) {
@@ -693,6 +701,32 @@ export function AdminPortal({
                   <div className="mt-4 space-y-1.5 overflow-y-auto isonet-scrollbar">
                     <button
                       type="button"
+                      onClick={() => selectSettingsSection("global-settings")}
+                      className={[
+                        "admin-subnav-button w-full text-left",
+                        activeSection === "settings" &&
+                        activeSettingsSection === "global-settings"
+                          ? "admin-subnav-button-active"
+                          : "",
+                      ].join(" ")}
+                    >
+                      Global
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectSettingsSection("forum-settings")}
+                      className={[
+                        "admin-subnav-button w-full text-left",
+                        activeSection === "settings" &&
+                        activeSettingsSection === "forum-settings"
+                          ? "admin-subnav-button-active"
+                          : "",
+                      ].join(" ")}
+                    >
+                      Forums
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => selectSettingsSection("home-page-settings")}
                       className={[
                         "admin-subnav-button w-full text-left",
@@ -861,6 +895,12 @@ export function AdminPortal({
             </div>
           ) : activeSection === "vendors" ? (
             <VendorManagementSection />
+          ) : activeSection === "settings" &&
+            activeSettingsSection === "global-settings" ? (
+              <GlobalBadgeSettings />
+          ) : activeSection === "settings" &&
+            activeSettingsSection === "forum-settings" ? (
+              <ForumSettings />
           ) : activeSection === "settings" &&
             activeSettingsSection === "home-page-settings" ? (
               <div className="space-y-4">

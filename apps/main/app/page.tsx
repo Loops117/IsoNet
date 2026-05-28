@@ -1,9 +1,17 @@
 import Link from "next/link";
 
-import { facebookGroupUrl, siteNavLinks } from "../lib/site-nav";
+import { facebookGroupUrl } from "../lib/site-nav";
+import {
+  fetchPublicVendorListings,
+  type PublicVendorListing,
+} from "../lib/public-vendors";
+import { HomepageBadge } from "./components/homepage-badge";
 import { MissionPanels } from "./components/mission-panels";
-import { SiteNavAnchor } from "./components/site-nav-link";
+import { SiteNavMenus } from "./components/site-nav-menus";
 import { TimelineProgress } from "./components/timeline-progress";
+import { VendorDirectoryList } from "./components/vendor-directory-list";
+
+export const dynamic = "force-dynamic";
 
 const timelineSteps = [
   {
@@ -114,42 +122,32 @@ const accountabilitySteps = [
   "Reviews, disputes, and standing updates keep accountability visible over time.",
 ];
 
-const vendorPreviewRows = [
-  { name: "Vendor directory opening soon", status: "Pending launch" },
-  { name: "Approved vendor records", status: "In preparation" },
-  { name: "Public browse tools", status: "Coming next" },
-];
+export default async function Home() {
+  let directoryVendors: PublicVendorListing[] = [];
 
-export default function Home() {
+  try {
+    directoryVendors = await fetchPublicVendorListings(12);
+  } catch {
+    directoryVendors = [];
+  }
+
   return (
-    <main className="flex flex-1 justify-center px-5 py-8 sm:px-6 sm:py-12">
+    <main className="flex flex-1 justify-center px-5 pb-8 pt-3 sm:px-6 sm:pb-10 sm:pt-4">
       <div className="flex w-full max-w-7xl flex-col gap-8">
         <section className="isonet-panel isonet-hero-panel overflow-hidden">
-          <div className="border-b border-white/10 px-6 py-4 sm:px-8">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="border-b border-white/10 px-6 py-3 sm:px-8">
+            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--accent)]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-[var(--accent)]">
                   The Isopod Network
                 </p>
-                <p className="mt-2 text-sm leading-7 text-slate-300">
+                <p className="mt-1 text-xs leading-6 text-slate-300 sm:text-sm sm:leading-7">
                   Setting a standard for the invert hobby—before bad practices
                   become normal.
                 </p>
               </div>
 
-              <nav
-                id="home-hero-nav"
-                aria-label="Homepage navigation"
-                className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-300"
-              >
-                {siteNavLinks.map((link) => (
-                  <SiteNavAnchor
-                    key={link.href}
-                    link={link}
-                    className="isonet-link"
-                  />
-                ))}
-              </nav>
+              <SiteNavMenus id="home-hero-nav" variant="hero" />
             </div>
           </div>
 
@@ -252,19 +250,7 @@ export default function Home() {
 
         <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
           <article className="isonet-panel grid gap-8 p-6 sm:p-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-            <div className="flex flex-col items-center gap-3">
-              <div className="badge-placeholder">
-                <div className="badge-placeholder__inner">
-                  <div className="badge-placeholder__label-group">
-                    <span className="badge-placeholder__label">Badge</span>
-                    <span className="badge-placeholder__sublabel">Placeholder</span>
-                  </div>
-                </div>
-              </div>
-              <p className="badge-placeholder__caption">
-                We&apos;re still working on badge design
-              </p>
-            </div>
+            <HomepageBadge />
 
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--accent)]">
@@ -307,26 +293,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="rounded-sm border border-white/10 bg-white/4">
-              <div className="grid grid-cols-[1fr_auto] gap-4 border-b border-white/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                <span>Directory item</span>
-                <span>Status</span>
-              </div>
-
-              <div className="divide-y divide-white/10">
-                {vendorPreviewRows.map((row) => (
-                  <div
-                    key={row.name}
-                    className="grid grid-cols-[1fr_auto] gap-4 px-5 py-4 text-sm"
-                  >
-                    <span className="text-slate-100">{row.name}</span>
-                    <span className="rounded-sm border border-white/10 bg-white/6 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
-                      {row.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <VendorDirectoryList vendors={directoryVendors} showViewAllLink />
           </article>
         </section>
 

@@ -48,6 +48,10 @@ export type VendorProfile = {
   average_rating: number;
   review_count: number;
   start_date: string;
+  badge_start_date: string | null;
+  sales_locations: string[];
+  sales_items: string[];
+  about_us_html: string | null;
   created_at: string;
   updated_at: string;
 };
